@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Other plugins
+classic-editor/
+
+# Logs
+*.log
+
+# Keep these files tracked:
+# - Property_Plugin_Loader.php (WordPress sees this)
+# - Property_Plugin/ (all plugin code)
