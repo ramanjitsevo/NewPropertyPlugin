@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 function property_plugin_add_admin_menu() {
     add_menu_page(
         __('Property Plugin Settings', 'property-plugin'),
-        __('Property Plugin', 'property-plugin'),
+        __('Property Plugin Settings', 'property-plugin'),
         'manage_options',
         'property-plugin-settings',
         'property_plugin_settings_page',
@@ -100,6 +100,10 @@ function property_plugin_settings_page() {
                 <button class="tab-button" data-tab="card">
                     <span class="dashicons dashicons-layout"></span>
                     <?php _e('Property Card', 'property-plugin'); ?>
+                </button>
+                <button class="tab-button" data-tab="taxonomies">
+                    <span class="dashicons dashicons-category"></span>
+                    <?php _e('Custom Taxonomies', 'property-plugin'); ?>
                 </button>
                 <button class="tab-button" data-tab="contact">
                     <span class="dashicons dashicons-email"></span>
@@ -415,6 +419,73 @@ function property_plugin_settings_page() {
                     </div>
                 </div>
 
+                <!-- Custom Taxonomies Tab -->
+                <div class="tab-content" id="taxonomies">
+                    <div class="settings-section">
+                        <h2><?php _e('Custom Taxonomies Manager', 'property-plugin'); ?></h2>
+                        <p class="section-description"><?php _e('Create custom taxonomies for your properties (e.g., Floor, Year Built, Parking, etc.)', 'property-plugin'); ?></p>
+                        
+                        <div class="taxonomy-creator">
+                            <h3><?php _e('Create New Taxonomy', 'property-plugin'); ?></h3>
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">
+                                        <label for="new_taxonomy_name"><?php _e('Taxonomy Name', 'property-plugin'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="text" id="new_taxonomy_name" name="new_taxonomy_name" 
+                                               class="regular-text" placeholder="e.g., Floors" />
+                                        <p class="description"><?php _e('Display name for the taxonomy (e.g., Floors, Year Built, Parking)', 'property-plugin'); ?></p>
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <th scope="row">
+                                        <label for="new_taxonomy_slug"><?php _e('Taxonomy Slug', 'property-plugin'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="text" id="new_taxonomy_slug" name="new_taxonomy_slug" 
+                                               class="regular-text" placeholder="e.g., property-floor" />
+                                        <p class="description"><?php _e('Unique slug (lowercase, hyphens allowed). Example: property-floor, year-built, parking-type', 'property-plugin'); ?></p>
+                                    </td>
+                                </tr>
+                                
+                                <tr>
+                                    <th scope="row"><?php _e('Actions', 'property-plugin'); ?></th>
+                                    <td>
+                                        <button type="button" class="button button-primary" id="create-taxonomy"><?php _e('Create Taxonomy', 'property-plugin'); ?></button>
+                                        <span class="taxonomy-status" id="taxonomy-status"></span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <div class="taxonomy-list">
+                            <h3><?php _e('Existing Custom Taxonomies', 'property-plugin'); ?></h3>
+                            <div id="custom-taxonomies-list">
+                                <?php
+                                $custom_taxonomies = get_option('property_plugin_custom_taxonomies', array());
+                                if (!empty($custom_taxonomies)) {
+                                    echo '<table class="wp-list-table widefat fixed striped">';
+                                    echo '<thead><tr><th>' . __('Name', 'property-plugin') . '</th><th>' . __('Slug', 'property-plugin') . '</th><th>' . __('Actions', 'property-plugin') . '</th></tr></thead>';
+                                    echo '<tbody>';
+                                    foreach ($custom_taxonomies as $tax) {
+                                        echo '<tr>';
+                                        echo '<td>' . esc_html($tax['name']) . '</td>';
+                                        echo '<td><code>' . esc_html($tax['slug']) . '</code></td>';
+                                        echo '<td><button type="button" class="button delete-taxonomy" data-slug="' . esc_attr($tax['slug']) . '">' . __('Delete', 'property-plugin') . '</button></td>';
+                                        echo '</tr>';
+                                    }
+                                    echo '</tbody></table>';
+                                } else {
+                                    echo '<p class="description">' . __('No custom taxonomies created yet.', 'property-plugin') . '</p>';
+                                }
+                                ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Contact & Lead Form Tab -->
                 <div class="tab-content" id="contact">
                     <div class="settings-section">
@@ -676,6 +747,38 @@ function property_plugin_settings_page() {
             display: inline-block;
         }
         
+        .taxonomy-creator {
+            background: #f0f6fc;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2271b1;
+        }
+        
+        .taxonomy-creator h3 {
+            margin-top: 0;
+            color: #2271b1;
+        }
+        
+        .taxonomy-list h3 {
+            margin-bottom: 15px;
+        }
+        
+        .taxonomy-status {
+            margin-left: 10px;
+            font-weight: 600;
+        }
+        
+        .delete-taxonomy {
+            color: #d63638;
+            border-color: #d63638;
+        }
+        
+        .delete-taxonomy:hover {
+            background: #d63638;
+            color: #fff;
+        }
+        
         @media (max-width: 782px) {
             .property-plugin-settings-container {
                 flex-direction: column;
@@ -820,6 +923,87 @@ function property_plugin_settings_page() {
                 saveSettings();
             }
         });
+        
+        // Auto-generate slug from name
+        $('#new_taxonomy_name').on('input', function() {
+            var name = $(this).val();
+            var slug = name.toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .trim();
+            if (slug && !$('#new_taxonomy_slug').val()) {
+                $('#new_taxonomy_slug').val('property-' + slug);
+            }
+        });
+        
+        // Create taxonomy
+        $('#create-taxonomy').on('click', function() {
+            var name = $('#new_taxonomy_name').val().trim();
+            var slug = $('#new_taxonomy_slug').val().trim();
+            
+            if (!name || !slug) {
+                $('#taxonomy-status').text('✗ Please fill in both name and slug').css('color', '#d63638');
+                return;
+            }
+            
+            // Validate slug format
+            if (!/^[a-z0-9-]+$/.test(slug)) {
+                $('#taxonomy-status').text('✗ Slug can only contain lowercase letters, numbers, and hyphens').css('color', '#d63638');
+                return;
+            }
+            
+            $('#taxonomy-status').text('Creating...').css('color', '#646970');
+            
+            $.post(ajaxurl, {
+                action: 'property_plugin_create_taxonomy',
+                nonce: '<?php echo wp_create_nonce('property_plugin_nonce'); ?>',
+                name: name,
+                slug: slug
+            }, function(response) {
+                if (response.success) {
+                    $('#taxonomy-status').text('✓ ' + response.data).css('color', '#00a32a');
+                    $('#new_taxonomy_name').val('');
+                    $('#new_taxonomy_slug').val('');
+                    
+                    // Reload page after 1.5 seconds to show new taxonomy
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    $('#taxonomy-status').text('✗ ' + response.data).css('color', '#d63638');
+                }
+            }).fail(function() {
+                $('#taxonomy-status').text('✗ Error creating taxonomy').css('color', '#d63638');
+            });
+        });
+        
+        // Delete taxonomy
+        $(document).on('click', '.delete-taxonomy', function() {
+            if (!confirm('Are you sure you want to delete this taxonomy? All associated terms will be removed.')) {
+                return;
+            }
+            
+            var slug = $(this).data('slug');
+            var $button = $(this);
+            
+            $.post(ajaxurl, {
+                action: 'property_plugin_delete_taxonomy',
+                nonce: '<?php echo wp_create_nonce('property_plugin_nonce'); ?>',
+                slug: slug
+            }, function(response) {
+                if (response.success) {
+                    $button.closest('tr').fadeOut();
+                    setTimeout(function() {
+                        location.reload();
+                    }, 500);
+                } else {
+                    alert('Error: ' + response.data);
+                }
+            }).fail(function() {
+                alert('Error deleting taxonomy');
+            });
+        });
     });
     </script>
     <?php
@@ -896,3 +1080,145 @@ function property_plugin_save_all_settings_ajax() {
     wp_send_json_success('Settings saved');
 }
 add_action('wp_ajax_property_plugin_save_all_settings', 'property_plugin_save_all_settings_ajax');
+
+/**
+ * AJAX handler to create custom taxonomy
+ */
+function property_plugin_create_taxonomy_ajax() {
+    check_ajax_referer('property_plugin_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+    
+    $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+    $slug = isset($_POST['slug']) ? sanitize_key($_POST['slug']) : '';
+    
+    if (empty($name) || empty($slug)) {
+        wp_send_json_error('Name and slug are required');
+    }
+    
+    // Validate slug format
+    if (!preg_match('/^[a-z0-9-]+$/', $slug)) {
+        wp_send_json_error('Invalid slug format. Use only lowercase letters, numbers, and hyphens');
+    }
+    
+    // Check if taxonomy already exists
+    if (taxonomy_exists($slug)) {
+        wp_send_json_error('Taxonomy "' . $slug . '" already exists');
+    }
+    
+    // Get existing custom taxonomies
+    $custom_taxonomies = get_option('property_plugin_custom_taxonomies', array());
+    
+    // Check if slug is already in our list
+    foreach ($custom_taxonomies as $tax) {
+        if ($tax['slug'] === $slug) {
+            wp_send_json_error('Taxonomy slug "' . $slug . '" is already registered');
+        }
+    }
+    
+    // Add to custom taxonomies list
+    $custom_taxonomies[] = array(
+        'name' => $name,
+        'slug' => $slug,
+    );
+    
+    update_option('property_plugin_custom_taxonomies', $custom_taxonomies);
+    
+    // Register the taxonomy immediately
+    property_plugin_register_custom_taxonomy($slug, $name);
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+    
+    wp_send_json_success('Taxonomy "' . $name . '" created successfully!');
+}
+add_action('wp_ajax_property_plugin_create_taxonomy', 'property_plugin_create_taxonomy_ajax');
+
+/**
+ * AJAX handler to delete custom taxonomy
+ */
+function property_plugin_delete_taxonomy_ajax() {
+    check_ajax_referer('property_plugin_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+    
+    $slug = isset($_POST['slug']) ? sanitize_key($_POST['slug']) : '';
+    
+    if (empty($slug)) {
+        wp_send_json_error('Taxonomy slug is required');
+    }
+    
+    // Get existing custom taxonomies
+    $custom_taxonomies = get_option('property_plugin_custom_taxonomies', array());
+    
+    // Remove the taxonomy
+    $found = false;
+    foreach ($custom_taxonomies as $key => $tax) {
+        if ($tax['slug'] === $slug) {
+            $name = $tax['name'];
+            unset($custom_taxonomies[$key]);
+            $found = true;
+            break;
+        }
+    }
+    
+    if (!$found) {
+        wp_send_json_error('Taxonomy not found');
+    }
+    
+    // Update option
+    update_option('property_plugin_custom_taxonomies', array_values($custom_taxonomies));
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+    
+    wp_send_json_success('Taxonomy deleted successfully');
+}
+add_action('wp_ajax_property_plugin_delete_taxonomy', 'property_plugin_delete_taxonomy_ajax');
+
+/**
+ * Register a custom taxonomy
+ */
+function property_plugin_register_custom_taxonomy($slug, $name) {
+    $labels = array(
+        'name'              => $name,
+        'singular_name'     => $name,
+        'search_items'      => 'Search ' . $name,
+        'all_items'         => 'All ' . $name,
+        'edit_item'         => 'Edit ' . $name,
+        'update_item'       => 'Update ' . $name,
+        'add_new_item'      => 'Add New ' . $name,
+        'new_item_name'     => 'New ' . $name . ' Name',
+        'menu_name'         => $name,
+    );
+    
+    $args = array(
+        'hierarchical'      => true,
+        'labels'            => $labels,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => array('slug' => $slug),
+        'show_in_rest'      => true,
+    );
+    
+    register_taxonomy($slug, 'property', $args);
+}
+
+/**
+ * Register all custom taxonomies on init
+ */
+function property_plugin_register_all_custom_taxonomies() {
+    $custom_taxonomies = get_option('property_plugin_custom_taxonomies', array());
+    
+    if (!empty($custom_taxonomies)) {
+        foreach ($custom_taxonomies as $tax) {
+            property_plugin_register_custom_taxonomy($tax['slug'], $tax['name']);
+        }
+    }
+}
+add_action('init', 'property_plugin_register_all_custom_taxonomies');

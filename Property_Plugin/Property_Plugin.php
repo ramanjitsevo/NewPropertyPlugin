@@ -91,7 +91,7 @@ function property_plugin_register_post_type() {
         'description'           => __('Property listings for real estate', 'property-plugin'),
         'labels'                => $labels,
         'supports'              => array('title', 'editor', 'excerpt', 'thumbnail', 'custom-fields'),
-        'taxonomies'            => array('property-type', 'property-location', 'bedrooms', 'bathrooms'),
+        'taxonomies'            => array('property-type', 'property-location', 'bedrooms', 'bathrooms', 'property-floor'),
         'hierarchical'          => false,
         'public'                => true,
         'show_ui'               => true,
@@ -197,6 +197,27 @@ function property_plugin_register_taxonomies() {
         'show_admin_column' => true,
         'query_var'         => true,
         'rewrite'           => array('slug' => 'bathrooms'),
+        'show_in_rest'      => true,
+    ));
+    
+    // Floor taxonomy
+    register_taxonomy('property-floor', 'property', array(
+        'labels' => array(
+            'name'              => __('Floors', 'property-plugin'),
+            'singular_name'     => __('Floor', 'property-plugin'),
+            'search_items'      => __('Search Floors', 'property-plugin'),
+            'all_items'         => __('All Floors', 'property-plugin'),
+            'edit_item'         => __('Edit Floor', 'property-plugin'),
+            'update_item'       => __('Update Floor', 'property-plugin'),
+            'add_new_item'      => __('Add New Floor', 'property-plugin'),
+            'new_item_name'     => __('New Floor Name', 'property-plugin'),
+            'menu_name'         => __('Floors', 'property-plugin'),
+        ),
+        'hierarchical'      => true,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => array('slug' => 'floor'),
         'show_in_rest'      => true,
     ));
 }
@@ -422,6 +443,29 @@ function property_plugin_add_body_class($classes) {
 }
 
 /**
+ * Format price with selected currency
+ */
+function property_plugin_format_price($price) {
+    if (!$price) {
+        return 'N/A';
+    }
+    
+    $currency = get_option('property_plugin_default_currency', 'USD');
+    
+    $currency_symbols = array(
+        'USD' => '$',
+        'EUR' => '€',
+        'GBP' => '£',
+        'INR' => '₹',
+        'PKR' => 'Rs ',
+    );
+    
+    $symbol = isset($currency_symbols[$currency]) ? $currency_symbols[$currency] : '$';
+    
+    return $symbol . number_format($price);
+}
+
+/**
  * Register REST API routes
  */
 function property_plugin_register_routes() {
@@ -466,6 +510,15 @@ function property_plugin_get_properties($request) {
         $locations = wp_get_post_terms($post->ID, 'property-location', array('fields' => 'names'));
         $bedrooms = wp_get_post_terms($post->ID, 'bedrooms', array('fields' => 'names'));
         $bathrooms = wp_get_post_terms($post->ID, 'bathrooms', array('fields' => 'names'));
+        $floors = wp_get_post_terms($post->ID, 'property-floor', array('fields' => 'names'));
+        
+        // Get custom taxonomies
+        $custom_taxonomies = get_option('property_plugin_custom_taxonomies', array());
+        $custom_taxonomy_data = array();
+        foreach ($custom_taxonomies as $tax) {
+            $terms = wp_get_post_terms($post->ID, $tax['slug'], array('fields' => 'names'));
+            $custom_taxonomy_data[$tax['slug']] = !empty($terms) ? $terms[0] : 'N/A';
+        }
         
         // Get meta data
         $price = get_post_meta($post->ID, '_property_price', true);
@@ -473,14 +526,14 @@ function property_plugin_get_properties($request) {
         $address = get_post_meta($post->ID, '_property_address', true);
         $status = get_post_meta($post->ID, '_property_status', true);
         
-        $properties[] = array(
+        $property_data = array(
             'id' => $post->ID,
             'title' => $post->post_title,
             'content' => $post->post_content,
             'excerpt' => $post->post_excerpt,
             'date' => $post->post_date,
             'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large'),
-            'price' => $price ? '$' . number_format($price) : 'N/A',
+            'price' => property_plugin_format_price($price),
             'area' => $area ? $area . ' sq ft' : 'N/A',
             'address' => $address ?: 'Address not available',
             'status' => $status ?: 'for-sale',
@@ -488,7 +541,13 @@ function property_plugin_get_properties($request) {
             'location' => !empty($locations) ? $locations[0] : 'Location',
             'bedrooms' => !empty($bedrooms) ? $bedrooms[0] : 'N/A',
             'bathrooms' => !empty($bathrooms) ? $bathrooms[0] : 'N/A',
+            'floor' => !empty($floors) ? $floors[0] : 'N/A',
         );
+        
+        // Add custom taxonomy data
+        $property_data = array_merge($property_data, $custom_taxonomy_data);
+        
+        $properties[] = $property_data;
     }
     
     return rest_ensure_response($properties);
@@ -510,6 +569,15 @@ function property_plugin_get_property($request) {
     $locations = wp_get_post_terms($post->ID, 'property-location', array('fields' => 'names'));
     $bedrooms = wp_get_post_terms($post->ID, 'bedrooms', array('fields' => 'names'));
     $bathrooms = wp_get_post_terms($post->ID, 'bathrooms', array('fields' => 'names'));
+    $floors = wp_get_post_terms($post->ID, 'property-floor', array('fields' => 'names'));
+    
+    // Get custom taxonomies
+    $custom_taxonomies = get_option('property_plugin_custom_taxonomies', array());
+    $custom_taxonomy_data = array();
+    foreach ($custom_taxonomies as $tax) {
+        $terms = wp_get_post_terms($post->ID, $tax['slug'], array('fields' => 'names'));
+        $custom_taxonomy_data[$tax['slug']] = !empty($terms) ? $terms[0] : 'N/A';
+    }
     
     // Get meta data
     $price = get_post_meta($post->ID, '_property_price', true);
@@ -517,14 +585,14 @@ function property_plugin_get_property($request) {
     $address = get_post_meta($post->ID, '_property_address', true);
     $status = get_post_meta($post->ID, '_property_status', true);
     
-    $property = array(
+    $property_data = array(
         'id' => $post->ID,
         'title' => $post->post_title,
         'content' => $post->post_content,
         'excerpt' => $post->post_excerpt,
         'date' => $post->post_date,
         'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large'),
-        'price' => $price ? '$' . number_format($price) : 'N/A',
+        'price' => property_plugin_format_price($price),
         'area' => $area ? $area . ' sq ft' : 'N/A',
         'address' => $address ?: 'Address not available',
         'status' => $status ?: 'for-sale',
@@ -532,9 +600,13 @@ function property_plugin_get_property($request) {
         'location' => !empty($locations) ? $locations[0] : 'Location',
         'bedrooms' => !empty($bedrooms) ? $bedrooms[0] : 'N/A',
         'bathrooms' => !empty($bathrooms) ? $bathrooms[0] : 'N/A',
+        'floor' => !empty($floors) ? $floors[0] : 'N/A',
     );
     
-    return rest_ensure_response($property);
+    // Add custom taxonomy data
+    $property_data = array_merge($property_data, $custom_taxonomy_data);
+    
+    return rest_ensure_response($property_data);
 }
 
 /**
@@ -556,6 +628,10 @@ function property_plugin_get_taxonomies($request) {
         )),
         'bathrooms' => get_terms(array(
             'taxonomy' => 'bathrooms',
+            'hide_empty' => true,
+        )),
+        'floors' => get_terms(array(
+            'taxonomy' => 'property-floor',
             'hide_empty' => true,
         )),
     );
