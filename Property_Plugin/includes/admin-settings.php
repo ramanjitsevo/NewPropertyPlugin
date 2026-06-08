@@ -79,6 +79,24 @@ function property_plugin_register_settings() {
     // Advanced Settings
     register_setting('property_plugin_advanced', 'property_plugin_custom_css', array('sanitize_callback' => 'wp_strip_all_tags'));
     register_setting('property_plugin_advanced', 'property_plugin_google_analytics', array('sanitize_callback' => 'sanitize_text_field'));
+
+    // CTA Section Settings
+    register_setting('property_plugin_sections', 'property_plugin_cta_image', array('sanitize_callback' => 'esc_url_raw'));
+    register_setting('property_plugin_sections', 'property_plugin_cta_title', array('sanitize_callback' => 'sanitize_text_field'));
+    register_setting('property_plugin_sections', 'property_plugin_cta_description', array('sanitize_callback' => 'sanitize_text_field'));
+    register_setting('property_plugin_sections', 'property_plugin_cta_button_text', array('sanitize_callback' => 'sanitize_text_field'));
+    register_setting('property_plugin_sections', 'property_plugin_cta_button_url', array('sanitize_callback' => 'esc_url_raw'));
+    register_setting('property_plugin_sections', 'property_plugin_cta_bg_color', array('sanitize_callback' => 'sanitize_hex_color'));
+    register_setting('property_plugin_sections', 'property_plugin_cta_text_color', array('sanitize_callback' => 'sanitize_hex_color'));
+
+    // Features Section Settings
+    register_setting('property_plugin_sections', 'property_plugin_features_bg_color', array('sanitize_callback' => 'sanitize_hex_color'));
+    register_setting('property_plugin_sections', 'property_plugin_features_text_color', array('sanitize_callback' => 'sanitize_hex_color'));
+    for ($i = 1; $i <= 4; $i++) {
+        register_setting('property_plugin_sections', "property_plugin_feature_{$i}_icon", array('sanitize_callback' => 'sanitize_text_field'));
+        register_setting('property_plugin_sections', "property_plugin_feature_{$i}_title", array('sanitize_callback' => 'sanitize_text_field'));
+        register_setting('property_plugin_sections', "property_plugin_feature_{$i}_description", array('sanitize_callback' => 'sanitize_text_field'));
+    }
 }
 add_action('admin_init', 'property_plugin_register_settings');
 
@@ -128,6 +146,10 @@ function property_plugin_settings_page() {
                 <button class="tab-button" data-tab="advanced">
                     <span class="dashicons dashicons-admin-tools"></span>
                     <?php _e('Advanced', 'property-plugin'); ?>
+                </button>
+                <button class="tab-button" data-tab="sections">
+                    <span class="dashicons dashicons-exerpt-view"></span>
+                    <?php _e('Homepage Sections', 'property-plugin'); ?>
                 </button>
             </div>
 
@@ -627,6 +649,142 @@ function property_plugin_settings_page() {
                     </div>
                 </div>
 
+                <!-- Homepage Sections Tab -->
+                <div class="tab-content" id="sections">
+
+                    <!-- CTA Section -->
+                    <div class="settings-section">
+                        <h2><?php _e('CTA Section — "Sell or Rent Your Property"', 'property-plugin'); ?></h2>
+                        <p class="section-description"><?php _e('Customize the call-to-action banner shown at the bottom of the property listings page.', 'property-plugin'); ?></p>
+
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><label for="cta_image"><?php _e('CTA Image', 'property-plugin'); ?></label></th>
+                                <td>
+                                    <div class="image-upload-container">
+                                        <img id="cta_image_preview"
+                                             src="<?php echo esc_url(get_option('property_plugin_cta_image', '')); ?>"
+                                             style="<?php echo get_option('property_plugin_cta_image') ? '' : 'display:none;'; ?>max-width:300px; height:auto; margin-bottom:10px;" />
+                                        <br/>
+                                        <input type="hidden" id="cta_image" name="property_plugin_cta_image"
+                                               value="<?php echo esc_attr(get_option('property_plugin_cta_image', '')); ?>" />
+                                        <button type="button" class="button pp-upload-img" data-target="cta_image"><?php _e('Upload Image', 'property-plugin'); ?></button>
+                                        <button type="button" class="button pp-remove-img" data-target="cta_image"
+                                                <?php echo get_option('property_plugin_cta_image') ? '' : 'style="display:none;"'; ?>><?php _e('Remove', 'property-plugin'); ?></button>
+                                        <p class="description"><?php _e('Recommended size: 600×500 px', 'property-plugin'); ?></p>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="cta_title"><?php _e('Heading', 'property-plugin'); ?></label></th>
+                                <td>
+                                    <input type="text" id="cta_title" name="property_plugin_cta_title"
+                                           value="<?php echo esc_attr(get_option('property_plugin_cta_title', 'Want to Sell or Rent Your Property?')); ?>"
+                                           class="large-text" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="cta_description"><?php _e('Description', 'property-plugin'); ?></label></th>
+                                <td>
+                                    <textarea id="cta_description" name="property_plugin_cta_description" rows="3"
+                                              class="large-text"><?php echo esc_textarea(get_option('property_plugin_cta_description', 'List your property with us and reach thousands of potential buyers and renters.')); ?></textarea>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="cta_button_text"><?php _e('Button Text', 'property-plugin'); ?></label></th>
+                                <td>
+                                    <input type="text" id="cta_button_text" name="property_plugin_cta_button_text"
+                                           value="<?php echo esc_attr(get_option('property_plugin_cta_button_text', 'Add Property Now')); ?>"
+                                           class="regular-text" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="cta_button_url"><?php _e('Button URL', 'property-plugin'); ?></label></th>
+                                <td>
+                                    <input type="url" id="cta_button_url" name="property_plugin_cta_button_url"
+                                           value="<?php echo esc_attr(get_option('property_plugin_cta_button_url', '/wp-admin/post-new.php?post_type=property')); ?>"
+                                           class="large-text" placeholder="https://..." />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="cta_bg_color"><?php _e('Background Color', 'property-plugin'); ?></label></th>
+                                <td><input type="color" id="cta_bg_color" name="property_plugin_cta_bg_color"
+                                           value="<?php echo esc_attr(get_option('property_plugin_cta_bg_color', '#f0f9ff')); ?>" class="color-picker" /></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="cta_text_color"><?php _e('Text Color', 'property-plugin'); ?></label></th>
+                                <td><input type="color" id="cta_text_color" name="property_plugin_cta_text_color"
+                                           value="<?php echo esc_attr(get_option('property_plugin_cta_text_color', '#1e3a5f')); ?>" class="color-picker" /></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Features / Trust Section -->
+                    <div class="settings-section" style="margin-top: 40px;">
+                        <h2><?php _e('Features Section — "Trusted by Thousands"', 'property-plugin'); ?></h2>
+                        <p class="section-description"><?php _e('Customize the 4-column feature strip shown at the very bottom of the page.', 'property-plugin'); ?></p>
+
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><label for="features_bg_color"><?php _e('Section Background', 'property-plugin'); ?></label></th>
+                                <td><input type="color" id="features_bg_color" name="property_plugin_features_bg_color"
+                                           value="<?php echo esc_attr(get_option('property_plugin_features_bg_color', '#ffffff')); ?>" class="color-picker" /></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="features_text_color"><?php _e('Text Color', 'property-plugin'); ?></label></th>
+                                <td><input type="color" id="features_text_color" name="property_plugin_features_text_color"
+                                           value="<?php echo esc_attr(get_option('property_plugin_features_text_color', '#1f2937')); ?>" class="color-picker" /></td>
+                            </tr>
+                        </table>
+
+                        <?php
+                        $feature_defaults = array(
+                            1 => array('icon' => 'fas fa-trophy',       'title' => 'Trusted by Thousands',      'desc' => 'Join thousands of happy clients who found their perfect property.'),
+                            2 => array('icon' => 'fas fa-chart-bar',     'title' => 'Wide Range of Properties',  'desc' => 'Explore a wide range of properties for sale and rent.'),
+                            3 => array('icon' => 'fas fa-users',         'title' => 'Expert Agents',             'desc' => 'Work with experienced agents to find the best property.'),
+                            4 => array('icon' => 'fas fa-shield-alt',    'title' => 'Secure & Easy Process',     'desc' => 'Enjoy a secure and hassle-free property buying or renting process.'),
+                        );
+                        for ($i = 1; $i <= 4; $i++):
+                            $d = $feature_defaults[$i]; ?>
+                            <h3 style="margin-top:25px; border-top:1px solid #ddd; padding-top:20px;">
+                                <?php printf(__('Feature Item %d', 'property-plugin'), $i); ?>
+                            </h3>
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row"><label for="feature_<?php echo $i; ?>_icon"><?php _e('Icon (Font Awesome class)', 'property-plugin'); ?></label></th>
+                                    <td>
+                                        <input type="text" id="feature_<?php echo $i; ?>_icon"
+                                               name="property_plugin_feature_<?php echo $i; ?>_icon"
+                                               value="<?php echo esc_attr(get_option("property_plugin_feature_{$i}_icon", $d['icon'])); ?>"
+                                               class="regular-text" placeholder="fas fa-star" />
+                                        <p class="description">
+                                            <?php _e('Find icons at', 'property-plugin'); ?>
+                                            <a href="https://fontawesome.com/icons" target="_blank">fontawesome.com/icons</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="feature_<?php echo $i; ?>_title"><?php _e('Title', 'property-plugin'); ?></label></th>
+                                    <td>
+                                        <input type="text" id="feature_<?php echo $i; ?>_title"
+                                               name="property_plugin_feature_<?php echo $i; ?>_title"
+                                               value="<?php echo esc_attr(get_option("property_plugin_feature_{$i}_title", $d['title'])); ?>"
+                                               class="regular-text" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><label for="feature_<?php echo $i; ?>_description"><?php _e('Description', 'property-plugin'); ?></label></th>
+                                    <td>
+                                        <textarea id="feature_<?php echo $i; ?>_description"
+                                                  name="property_plugin_feature_<?php echo $i; ?>_description"
+                                                  rows="2" class="large-text"><?php echo esc_textarea(get_option("property_plugin_feature_{$i}_description", $d['desc'])); ?></textarea>
+                                    </td>
+                                </tr>
+                            </table>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -916,6 +1074,37 @@ function property_plugin_settings_page() {
             $('#banner_image_preview').attr('src', '').hide();
             $(this).hide();
         });
+
+        // Generic image uploader for .pp-upload-img / .pp-remove-img buttons
+        $(document).on('click', '.pp-upload-img', function(e) {
+            e.preventDefault();
+            var $btn = $(this);
+            var target = $btn.data('target'); // e.g. 'cta_image'
+
+            var frame = wp.media({
+                title: 'Select Image',
+                button: { text: 'Use this image' },
+                multiple: false,
+                library: { type: 'image' }
+            });
+
+            frame.on('select', function() {
+                var attachment = frame.state().get('selection').first().toJSON();
+                $('#' + target).val(attachment.url);
+                $('#' + target + '_preview').attr('src', attachment.url).show();
+                $btn.siblings('.pp-remove-img').show();
+            });
+
+            frame.open();
+        });
+
+        $(document).on('click', '.pp-remove-img', function(e) {
+            e.preventDefault();
+            var target = $(this).data('target');
+            $('#' + target).val('');
+            $('#' + target + '_preview').attr('src', '').hide();
+            $(this).hide();
+        });
         
         // Save all settings
         function saveSettings() {
@@ -1123,6 +1312,29 @@ function property_plugin_save_all_settings_ajax() {
         'property_plugin_google_api_key' => 'sanitize_text_field',
         'property_plugin_custom_css' => 'wp_strip_all_tags',
         'property_plugin_google_analytics' => 'sanitize_text_field',
+        // CTA section
+        'property_plugin_cta_image' => 'esc_url_raw',
+        'property_plugin_cta_title' => 'sanitize_text_field',
+        'property_plugin_cta_description' => 'sanitize_text_field',
+        'property_plugin_cta_button_text' => 'sanitize_text_field',
+        'property_plugin_cta_button_url' => 'esc_url_raw',
+        'property_plugin_cta_bg_color' => 'sanitize_hex_color',
+        'property_plugin_cta_text_color' => 'sanitize_hex_color',
+        // Features section
+        'property_plugin_features_bg_color' => 'sanitize_hex_color',
+        'property_plugin_features_text_color' => 'sanitize_hex_color',
+        'property_plugin_feature_1_icon' => 'sanitize_text_field',
+        'property_plugin_feature_1_title' => 'sanitize_text_field',
+        'property_plugin_feature_1_description' => 'sanitize_text_field',
+        'property_plugin_feature_2_icon' => 'sanitize_text_field',
+        'property_plugin_feature_2_title' => 'sanitize_text_field',
+        'property_plugin_feature_2_description' => 'sanitize_text_field',
+        'property_plugin_feature_3_icon' => 'sanitize_text_field',
+        'property_plugin_feature_3_title' => 'sanitize_text_field',
+        'property_plugin_feature_3_description' => 'sanitize_text_field',
+        'property_plugin_feature_4_icon' => 'sanitize_text_field',
+        'property_plugin_feature_4_title' => 'sanitize_text_field',
+        'property_plugin_feature_4_description' => 'sanitize_text_field',
     );
     
     foreach ($settings as $key => $value) {

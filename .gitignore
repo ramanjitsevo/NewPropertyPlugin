@@ -11,6 +11,8 @@ Thumbs.db
 
 # Other plugins
 classic-editor/
+wp-mail-smtp/
+wpforms-lite/
 
 # Logs
 *.log

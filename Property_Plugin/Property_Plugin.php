@@ -242,6 +242,9 @@ function property_plugin_add_meta_boxes() {
 function property_plugin_meta_box_callback($post) {
     wp_nonce_field('property_plugin_meta_box', 'property_plugin_meta_box_nonce');
     
+    // Ensure WordPress media uploader is available
+    wp_enqueue_media();
+    
     $price = get_post_meta($post->ID, '_property_price', true);
     $area = get_post_meta($post->ID, '_property_area', true);
     $address = get_post_meta($post->ID, '_property_address', true);
@@ -250,6 +253,9 @@ function property_plugin_meta_box_callback($post) {
     $zipcode = get_post_meta($post->ID, '_property_zipcode', true);
     $country = get_post_meta($post->ID, '_property_country', true);
     $status = get_post_meta($post->ID, '_property_status', true);
+    $garage = get_post_meta($post->ID, '_property_garage', true);
+    $gallery_ids = get_post_meta($post->ID, '_property_gallery', true);
+    $gallery_ids_array = !empty($gallery_ids) ? array_filter(explode(',', $gallery_ids)) : array();
     
     $google_api_key = get_option('property_plugin_google_api_key', '');
     
@@ -346,6 +352,114 @@ function property_plugin_meta_box_callback($post) {
             <option value="rented" <?php selected($status, 'rented'); ?>><?php _e('Rented', 'property-plugin'); ?></option>
         </select>
     </p>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+
+    <h3><?php _e('Property Features', 'property-plugin'); ?></h3>
+    <p>
+        <label for="property_garage"><?php _e('Garage (number of parking spaces):', 'property-plugin'); ?></label><br>
+        <input type="number" id="property_garage" name="property_garage" value="<?php echo esc_attr($garage); ?>" style="width: 100%;" placeholder="e.g., 2" min="0">
+    </p>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+
+    <h3><?php _e('Property Gallery', 'property-plugin'); ?></h3>
+    <p class="description" style="margin-bottom: 12px;">
+        <?php _e('Select multiple images from the media library to display below the featured image on the single property page.', 'property-plugin'); ?>
+    </p>
+
+    <div id="property-gallery-preview" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+        <?php foreach ($gallery_ids_array as $att_id):
+            $thumb_url = wp_get_attachment_image_url(intval($att_id), 'thumbnail');
+            if ($thumb_url): ?>
+            <div class="pp-gallery-thumb" data-id="<?php echo esc_attr($att_id); ?>"
+                 style="position: relative; width: 82px; height: 82px; border: 1px solid #ccd0d4; border-radius: 4px; overflow: hidden; cursor: move;">
+                <img src="<?php echo esc_url($thumb_url); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+                <button type="button" class="pp-remove-gallery-thumb"
+                        data-id="<?php echo esc_attr($att_id); ?>"
+                        style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.72); color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; line-height:18px; font-size:15px; padding:0;">×</button>
+            </div>
+        <?php endif; endforeach; ?>
+    </div>
+
+    <input type="hidden" id="property_gallery_ids" name="property_gallery_ids"
+           value="<?php echo esc_attr(implode(',', $gallery_ids_array)); ?>">
+
+    <button type="button" id="pp-gallery-btn" class="button button-secondary">
+        <span class="dashicons dashicons-format-gallery" style="margin-right: 5px;"></span>
+        <?php _e('Select Gallery Images', 'property-plugin'); ?>
+    </button>
+
+    <script>
+    jQuery(document).ready(function($) {
+        var ppMediaFrame;
+
+        function renderGalleryPreview() {
+            var ids = $('#property_gallery_ids').val().split(',').filter(Boolean);
+            var $preview = $('#property-gallery-preview').empty();
+
+            if (ids.length === 0) return;
+
+            // Use AJAX to fetch thumbnail URLs
+            $.post(ajaxurl, {
+                action: 'pp_get_gallery_thumbs',
+                ids: ids.join(','),
+                nonce: '<?php echo wp_create_nonce('pp_gallery_nonce'); ?>'
+            }, function(response) {
+                if (!response.success) return;
+                response.data.forEach(function(item) {
+                    $preview.append(
+                        '<div class="pp-gallery-thumb" data-id="' + item.id + '"' +
+                        ' style="position:relative; width:82px; height:82px; border:1px solid #ccd0d4; border-radius:4px; overflow:hidden;">' +
+                        '<img src="' + item.thumb + '" style="width:100%; height:100%; object-fit:cover; display:block;">' +
+                        '<button type="button" class="pp-remove-gallery-thumb" data-id="' + item.id + '"' +
+                        ' style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.72); color:#fff; border:none;' +
+                        ' border-radius:50%; width:20px; height:20px; cursor:pointer; line-height:18px; font-size:15px; padding:0;">×</button>' +
+                        '</div>'
+                    );
+                });
+            });
+        }
+
+        $('#pp-gallery-btn').on('click', function(e) {
+            e.preventDefault();
+
+            if (ppMediaFrame) { ppMediaFrame.open(); return; }
+
+            ppMediaFrame = wp.media({
+                title: '<?php _e('Select Gallery Images', 'property-plugin'); ?>',
+                button: { text: '<?php _e('Add to Gallery', 'property-plugin'); ?>' },
+                multiple: true,
+                library: { type: 'image' }
+            });
+
+            ppMediaFrame.on('select', function() {
+                var attachments = ppMediaFrame.state().get('selection').toJSON();
+                var currentIds = $('#property_gallery_ids').val().split(',').filter(Boolean);
+
+                attachments.forEach(function(att) {
+                    if (currentIds.indexOf(String(att.id)) === -1) {
+                        currentIds.push(String(att.id));
+                    }
+                });
+
+                $('#property_gallery_ids').val(currentIds.join(','));
+                renderGalleryPreview();
+            });
+
+            ppMediaFrame.open();
+        });
+
+        $('#property-gallery-preview').on('click', '.pp-remove-gallery-thumb', function(e) {
+            e.preventDefault();
+            var removeId = String($(this).data('id'));
+            var ids = $('#property_gallery_ids').val().split(',').filter(Boolean);
+            ids = ids.filter(function(id) { return id !== removeId; });
+            $('#property_gallery_ids').val(ids.join(','));
+            $(this).closest('.pp-gallery-thumb').remove();
+        });
+    });
+    </script>
     <?php
 }
 
@@ -399,6 +513,16 @@ function property_plugin_save_meta_boxes($post_id) {
     
     if (isset($_POST['property_status'])) {
         update_post_meta($post_id, '_property_status', sanitize_text_field($_POST['property_status']));
+    }
+
+    if (isset($_POST['property_garage'])) {
+        update_post_meta($post_id, '_property_garage', sanitize_text_field($_POST['property_garage']));
+    }
+
+    if (isset($_POST['property_gallery_ids'])) {
+        $raw_ids = sanitize_text_field($_POST['property_gallery_ids']);
+        $clean_ids = array_filter(array_map('absint', explode(',', $raw_ids)));
+        update_post_meta($post_id, '_property_gallery', implode(',', $clean_ids));
     }
 }
 
@@ -580,6 +704,13 @@ function property_plugin_register_routes() {
         'callback' => 'property_plugin_get_taxonomies',
         'permission_callback' => '__return_true',
     ));
+
+    // Submit lead form
+    register_rest_route('property-plugin/v1', '/leads', array(
+        'methods' => 'POST',
+        'callback' => 'property_plugin_submit_lead',
+        'permission_callback' => '__return_true',
+    ));
 }
 
 /**
@@ -622,6 +753,15 @@ function property_plugin_get_properties($request) {
         $zipcode = get_post_meta($post->ID, '_property_zipcode', true);
         $country = get_post_meta($post->ID, '_property_country', true);
         $status = get_post_meta($post->ID, '_property_status', true);
+        $garage = get_post_meta($post->ID, '_property_garage', true);
+        $gallery_ids_raw = get_post_meta($post->ID, '_property_gallery', true);
+        $gallery = array();
+        if (!empty($gallery_ids_raw)) {
+            foreach (array_filter(explode(',', $gallery_ids_raw)) as $att_id) {
+                $url = wp_get_attachment_image_url(intval($att_id), 'large');
+                if ($url) $gallery[] = $url;
+            }
+        }
         
         $property_data = array(
             'id' => $post->ID,
@@ -643,6 +783,8 @@ function property_plugin_get_properties($request) {
             'bedrooms' => !empty($bedrooms) ? $bedrooms[0] : 'N/A',
             'bathrooms' => !empty($bathrooms) ? $bathrooms[0] : 'N/A',
             'floor' => !empty($floors) ? $floors[0] : 'N/A',
+            'garage' => $garage ?: '',
+            'gallery' => $gallery,
         );
         
         // Add custom taxonomy data
@@ -689,6 +831,15 @@ function property_plugin_get_property($request) {
     $zipcode = get_post_meta($post->ID, '_property_zipcode', true);
     $country = get_post_meta($post->ID, '_property_country', true);
     $status = get_post_meta($post->ID, '_property_status', true);
+    $garage = get_post_meta($post->ID, '_property_garage', true);
+    $gallery_ids_raw = get_post_meta($post->ID, '_property_gallery', true);
+    $gallery = array();
+    if (!empty($gallery_ids_raw)) {
+        foreach (array_filter(explode(',', $gallery_ids_raw)) as $att_id) {
+            $url = wp_get_attachment_image_url(intval($att_id), 'large');
+            if ($url) $gallery[] = $url;
+        }
+    }
     
     $property_data = array(
         'id' => $post->ID,
@@ -710,6 +861,8 @@ function property_plugin_get_property($request) {
         'bedrooms' => !empty($bedrooms) ? $bedrooms[0] : 'N/A',
         'bathrooms' => !empty($bathrooms) ? $bathrooms[0] : 'N/A',
         'floor' => !empty($floors) ? $floors[0] : 'N/A',
+        'garage' => $garage ?: '',
+        'gallery' => $gallery,
     );
     
     // Add custom taxonomy data
@@ -839,6 +992,39 @@ function property_plugin_enqueue_assets() {
                         'contactPhone' => get_option('property_plugin_contact_phone', ''),
                         'customCSS' => get_option('property_plugin_custom_css', ''),
                         'googleAnalytics' => get_option('property_plugin_google_analytics', ''),
+                        // CTA Section
+                        'ctaImage' => get_option('property_plugin_cta_image', ''),
+                        'ctaTitle' => get_option('property_plugin_cta_title', 'Want to Sell or Rent Your Property?'),
+                        'ctaDescription' => get_option('property_plugin_cta_description', 'List your property with us and reach thousands of potential buyers and renters.'),
+                        'ctaButtonText' => get_option('property_plugin_cta_button_text', 'Add Property Now'),
+                        'ctaButtonUrl' => get_option('property_plugin_cta_button_url', '/wp-admin/post-new.php?post_type=property'),
+                        'ctaBgColor' => get_option('property_plugin_cta_bg_color', '#f0f9ff'),
+                        'ctaTextColor' => get_option('property_plugin_cta_text_color', '#1e3a5f'),
+                        // Features Section
+                        'featuresBgColor' => get_option('property_plugin_features_bg_color', '#ffffff'),
+                        'featuresTextColor' => get_option('property_plugin_features_text_color', '#1f2937'),
+                        'features' => array(
+                            array(
+                                'icon' => get_option('property_plugin_feature_1_icon', 'fas fa-trophy'),
+                                'title' => get_option('property_plugin_feature_1_title', 'Trusted by Thousands'),
+                                'description' => get_option('property_plugin_feature_1_description', 'Join thousands of happy clients who found their perfect property.'),
+                            ),
+                            array(
+                                'icon' => get_option('property_plugin_feature_2_icon', 'fas fa-chart-bar'),
+                                'title' => get_option('property_plugin_feature_2_title', 'Wide Range of Properties'),
+                                'description' => get_option('property_plugin_feature_2_description', 'Explore a wide range of properties for sale and rent.'),
+                            ),
+                            array(
+                                'icon' => get_option('property_plugin_feature_3_icon', 'fas fa-users'),
+                                'title' => get_option('property_plugin_feature_3_title', 'Expert Agents'),
+                                'description' => get_option('property_plugin_feature_3_description', 'Work with experienced agents to find the best property.'),
+                            ),
+                            array(
+                                'icon' => get_option('property_plugin_feature_4_icon', 'fas fa-shield-alt'),
+                                'title' => get_option('property_plugin_feature_4_title', 'Secure & Easy Process'),
+                                'description' => get_option('property_plugin_feature_4_description', 'Enjoy a secure and hassle-free property buying or renting process.'),
+                            ),
+                        ),
                     )
                 ));
                 
@@ -872,13 +1058,98 @@ function property_plugin_enqueue_assets() {
 }
 
 /**
+ * Create a demo property on first activation so users see how the plugin looks
+ */
+function property_plugin_create_demo_property() {
+    // Only run once — skip if demo already created
+    if (get_option('property_plugin_demo_created')) {
+        return;
+    }
+
+    // Insert the property post
+    $post_id = wp_insert_post(array(
+        'post_type'    => 'property',
+        'post_title'   => 'Modern Luxury Villa — Beverly Hills',
+        'post_content' => "This stunning modern villa offers the perfect blend of luxury, comfort, and contemporary design. Located in one of the most prestigious neighborhoods in Beverly Hills, this property features high-end finishes, spacious living areas, and breathtaking panoramic views.\n\nThe open-concept kitchen boasts premium stainless-steel appliances, a large island, and custom cabinetry. The master suite includes a walk-in closet, spa-like bathroom, and a private balcony overlooking the garden and pool.\n\nAdditional highlights include smart home automation, a home theatre, landscaped gardens, a swimming pool, and a 2-car garage.",
+        'post_excerpt' => 'A stunning modern villa in Beverly Hills with pool, smart home features, and panoramic views.',
+        'post_status'  => 'publish',
+    ), true);
+
+    if (is_wp_error($post_id)) {
+        error_log('[Property Plugin Demo] Failed to create demo property: ' . $post_id->get_error_message());
+        return;
+    }
+
+    // --- Taxonomy terms ---
+    wp_set_object_terms($post_id, array('Villa'),      'property-type');
+    wp_set_object_terms($post_id, array('Beverly Hills'), 'property-location');
+    wp_set_object_terms($post_id, array('4'),           'bedrooms');
+    wp_set_object_terms($post_id, array('3'),           'bathrooms');
+    wp_set_object_terms($post_id, array('2'),           'property-floor');
+
+    // --- Meta fields ---
+    update_post_meta($post_id, '_property_price',    '850000');
+    update_post_meta($post_id, '_property_area',     '2500');
+    update_post_meta($post_id, '_property_address',  '1234 Sunset Boulevard, Beverly Hills, CA');
+    update_post_meta($post_id, '_property_city',     'Beverly Hills');
+    update_post_meta($post_id, '_property_state',    'California');
+    update_post_meta($post_id, '_property_zipcode',  '90210');
+    update_post_meta($post_id, '_property_country',  'United States');
+    update_post_meta($post_id, '_property_status',   'for-sale');
+    update_post_meta($post_id, '_property_garage',   '2');
+
+    // --- Featured image (sideload from Unsplash) ---
+    $image_url = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80';
+
+    // WordPress media functions may not be loaded during activation
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+
+    $attachment_id = media_sideload_image($image_url, $post_id, 'Modern Luxury Villa — Beverly Hills', 'id');
+
+    if (!is_wp_error($attachment_id)) {
+        set_post_thumbnail($post_id, $attachment_id);
+
+        // Build gallery: 3 extra images
+        $gallery_urls = array(
+            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80',
+            'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80',
+            'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1200&q=80',
+        );
+        $gallery_ids = array();
+        foreach ($gallery_urls as $url) {
+            $att_id = media_sideload_image($url, $post_id, 'Gallery image', 'id');
+            if (!is_wp_error($att_id)) {
+                $gallery_ids[] = $att_id;
+            }
+        }
+        if (!empty($gallery_ids)) {
+            update_post_meta($post_id, '_property_gallery', implode(',', $gallery_ids));
+        }
+    } else {
+        error_log('[Property Plugin Demo] Image sideload failed: ' . $attachment_id->get_error_message());
+    }
+
+    // Mark demo as created so it never runs again
+    update_option('property_plugin_demo_created', $post_id);
+    error_log('[Property Plugin Demo] Demo property created — Post ID: ' . $post_id);
+}
+
+/**
  * Activation hook
  */
 function property_plugin_activate() {
     // Register post type and taxonomies before flushing
     property_plugin_register_post_type();
     property_plugin_register_taxonomies();
-    
+
+    // Create leads database table
+    property_plugin_create_leads_table();
+
+    // Create demo property (only once, on first activation)
+    property_plugin_create_demo_property();
+
     // Flush rewrite rules
     flush_rewrite_rules();
     
@@ -886,6 +1157,21 @@ function property_plugin_activate() {
     set_transient('property_plugin_show_activation_notice', true, 60);
 }
 register_activation_hook(__FILE__, 'property_plugin_activate');
+
+// Also ensure leads table exists on every load (safe for already-activated sites)
+add_action('plugins_loaded', 'property_plugin_create_leads_table');
+
+// Create demo property for existing installs that have no properties yet
+add_action('admin_init', function() {
+    if (get_option('property_plugin_demo_created')) {
+        return; // demo already handled
+    }
+    $count = wp_count_posts('property');
+    $total = ($count->publish ?? 0) + ($count->draft ?? 0);
+    if ($total === 0) {
+        property_plugin_create_demo_property();
+    }
+});
 
 /**
  * Deactivation hook
@@ -990,3 +1276,138 @@ function property_plugin_dismiss_notice_ajax() {
     wp_send_json_success();
 }
 add_action('wp_ajax_property_plugin_dismiss_notice', 'property_plugin_dismiss_notice_ajax');
+
+/**
+ * Create leads database table on plugin activation
+ */
+function property_plugin_create_leads_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'property_leads';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        id bigint(20) NOT NULL AUTO_INCREMENT,
+        property_id bigint(20) DEFAULT NULL,
+        property_title varchar(255) DEFAULT '',
+        name varchar(255) NOT NULL,
+        email varchar(255) NOT NULL,
+        phone varchar(50) DEFAULT '',
+        message text DEFAULT '',
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY email (email),
+        KEY property_id (property_id)
+    ) $charset_collate;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+}
+
+/**
+ * Handle lead form submission via REST API
+ */
+function property_plugin_submit_lead($request) {
+    $params = $request->get_json_params();
+
+    // Validate required fields
+    $name    = sanitize_text_field($params['name']    ?? '');
+    $email   = sanitize_email($params['email']        ?? '');
+    $phone   = sanitize_text_field($params['phone']   ?? '');
+    $message = sanitize_textarea_field($params['message'] ?? '');
+    $property_id    = intval($params['propertyId']    ?? 0);
+    $property_title = sanitize_text_field($params['propertyTitle'] ?? '');
+
+    if (empty($name) || empty($email)) {
+        error_log('[Property Plugin Lead] ERROR: Missing required fields - name or email');
+        return new WP_Error('missing_fields', 'Name and email are required.', array('status' => 400));
+    }
+
+    if (!is_email($email)) {
+        error_log('[Property Plugin Lead] ERROR: Invalid email address: ' . $email);
+        return new WP_Error('invalid_email', 'Please provide a valid email address.', array('status' => 400));
+    }
+
+    // Save lead to database
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'property_leads';
+
+    $inserted = $wpdb->insert(
+        $table_name,
+        array(
+            'property_id'    => $property_id,
+            'property_title' => $property_title,
+            'name'           => $name,
+            'email'          => $email,
+            'phone'          => $phone,
+            'message'        => $message,
+            'created_at'     => current_time('mysql'),
+        ),
+        array('%d', '%s', '%s', '%s', '%s', '%s', '%s')
+    );
+
+    if ($inserted === false) {
+        error_log('[Property Plugin Lead] ERROR: Database insert failed. DB error: ' . $wpdb->last_error);
+        return new WP_Error('db_error', 'Could not save lead. Please try again.', array('status' => 500));
+    }
+
+    $lead_id = $wpdb->insert_id;
+    error_log('[Property Plugin Lead] SUCCESS: Lead #' . $lead_id . ' saved for ' . $email);
+
+    // --- Send notification email via wp_mail() (routed through WP Mail SMTP / Mailtrap) ---
+    $to = get_option('property_plugin_contact_email', get_option('admin_email'));
+
+    $subject = sprintf('[New Lead] %s — %s', $name, $property_title ?: 'Property Inquiry');
+
+    $body  = "A new lead has been submitted on your property website.\n\n";
+    $body .= "--- Lead Details ---\n";
+    $body .= "Name:     $name\n";
+    $body .= "Email:    $email\n";
+    $body .= "Phone:    $phone\n";
+    $body .= "Message:  $message\n\n";
+    $body .= "--- Property ---\n";
+    $body .= "Property ID:    $property_id\n";
+    $body .= "Property Title: $property_title\n\n";
+    $body .= "--- Meta ---\n";
+    $body .= "Submitted at: " . current_time('mysql') . "\n";
+    $body .= "Lead ID:      $lead_id\n";
+
+    $headers = array(
+        'Content-Type: text/plain; charset=UTF-8',
+        'Reply-To: ' . $name . ' <' . $email . '>',
+    );
+
+    $mail_sent = wp_mail($to, $subject, $body, $headers);
+
+    if ($mail_sent) {
+        error_log('[Property Plugin Lead] Email sent successfully to ' . $to . ' (Lead #' . $lead_id . ')');
+    } else {
+        error_log('[Property Plugin Lead] WARNING: wp_mail() returned false for Lead #' . $lead_id . '. Check WP Mail SMTP settings.');
+    }
+
+    return rest_ensure_response(array(
+        'success' => true,
+        'leadId'  => $lead_id,
+        'emailSent' => $mail_sent,
+        'message' => 'Your enquiry has been submitted successfully. We will contact you shortly.',
+    ));
+}
+
+/**
+ * AJAX: Return thumbnail URLs for gallery preview in admin meta box
+ */
+function property_plugin_get_gallery_thumbs_ajax() {
+    check_ajax_referer('pp_gallery_nonce', 'nonce');
+
+    $ids = isset($_POST['ids']) ? array_filter(array_map('absint', explode(',', $_POST['ids']))) : array();
+    $result = array();
+
+    foreach ($ids as $id) {
+        $thumb = wp_get_attachment_image_url($id, 'thumbnail');
+        if ($thumb) {
+            $result[] = array('id' => $id, 'thumb' => $thumb);
+        }
+    }
+
+    wp_send_json_success($result);
+}
+add_action('wp_ajax_pp_get_gallery_thumbs', 'property_plugin_get_gallery_thumbs_ajax');
