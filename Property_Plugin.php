@@ -994,6 +994,17 @@ function property_plugin_get_properties($request) {
                 }
             }
             
+            // If no gallery images from attachments, use fallback URLs
+            if (empty($gallery)) {
+                $gallery_urls_raw = get_post_meta($post->ID, '_property_gallery_urls', true);
+                if (!empty($gallery_urls_raw)) {
+                    $gallery_urls = json_decode($gallery_urls_raw, true);
+                    if (is_array($gallery_urls)) {
+                        $gallery = $gallery_urls;
+                    }
+                }
+            }
+            
             // Get additional details safely
             $additional_details_raw = get_post_meta($post->ID, '_property_additional_details', true);
             $additional_details = array();
@@ -1024,7 +1035,7 @@ function property_plugin_get_properties($request) {
                 'content' => $post->post_content,
                 'excerpt' => $post->post_excerpt,
                 'date' => $post->post_date,
-                'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large') ?: '',
+                'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large') ?: (get_post_meta($post->ID, '_property_thumbnail_url', true) ?: ''),
                 'price' => property_plugin_format_price($price),
                 'area' => $area ? $area . ' sq ft' : 'N/A',
                 'address' => $address ?: 'Address not available',
@@ -1040,6 +1051,9 @@ function property_plugin_get_properties($request) {
                 'floor' => !empty($floors) ? $floors[0] : 'N/A',
                 'garage' => $garage ?: '',
                 'gallery' => $gallery,
+                // Add fallback default images if none exist
+                'thumbnail_url' => get_post_meta($post->ID, '_property_thumbnail_url', true) ?: '',
+                'gallery_urls' => get_post_meta($post->ID, '_property_gallery_urls', true) ?: '',
                 // Per-property agent meta (optional)
                 'agent' => array(
                     'name'  => get_post_meta($post->ID, '_property_agent_name', true) ?: '',
@@ -1130,6 +1144,17 @@ function property_plugin_get_property($request) {
             }
         }
         
+        // If no gallery images from attachments, use fallback URLs
+        if (empty($gallery)) {
+            $gallery_urls_raw = get_post_meta($post->ID, '_property_gallery_urls', true);
+            if (!empty($gallery_urls_raw)) {
+                $gallery_urls = json_decode($gallery_urls_raw, true);
+                if (is_array($gallery_urls)) {
+                    $gallery = $gallery_urls;
+                }
+            }
+        }
+        
         // Get additional details safely
         $additional_details_raw = get_post_meta($post->ID, '_property_additional_details', true);
         $additional_details = array();
@@ -1160,7 +1185,7 @@ function property_plugin_get_property($request) {
             'content' => $post->post_content,
             'excerpt' => $post->post_excerpt,
             'date' => $post->post_date,
-            'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large') ?: '',
+            'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large') ?: (get_post_meta($post->ID, '_property_thumbnail_url', true) ?: ''),
             'price' => property_plugin_format_price($price),
             'area' => $area ? $area . ' sq ft' : 'N/A',
             'address' => $address ?: 'Address not available',
@@ -1554,8 +1579,11 @@ function property_plugin_install_default_data($force = false) {
         if (isset($p['status'])) update_post_meta($post_id, '_property_status', sanitize_text_field($p['status']));
         if (isset($p['garage'])) update_post_meta($post_id, '_property_garage', sanitize_text_field($p['garage']));
 
-        // Featured image sideload
+        // Featured image sideload - save original URL as fallback
         if (!empty($p['thumbnail_url'])) {
+            // Always save the original URL as fallback
+            update_post_meta($post_id, '_property_thumbnail_url', esc_url_raw($p['thumbnail_url']));
+            
             error_log('[Property Plugin] Sideload thumbnail for post ' . $post_id . ': ' . $p['thumbnail_url']);
             $att_id = media_sideload_image($p['thumbnail_url'], $post_id, $p['title'] ?? 'Featured image', 'id');
             if (!is_wp_error($att_id)) {
@@ -1563,12 +1591,16 @@ function property_plugin_install_default_data($force = false) {
                 error_log('[Property Plugin] Thumbnail sideloaded successfully, attachment ID: ' . $att_id);
             } else {
                 error_log('[Property Plugin] Failed to sideload thumbnail: ' . $att_id->get_error_message());
+                error_log('[Property Plugin] Using fallback URL: ' . $p['thumbnail_url']);
             }
         }
 
-        // Gallery
+        // Gallery - save original URLs as fallback
         $gallery_ids = array();
         if (!empty($p['gallery_urls']) && is_array($p['gallery_urls'])) {
+            // Always save original URLs as fallback
+            update_post_meta($post_id, '_property_gallery_urls', json_encode($p['gallery_urls']));
+            
             error_log('[Property Plugin] Sideload ' . count($p['gallery_urls']) . ' gallery images for post ' . $post_id);
             foreach ($p['gallery_urls'] as $gidx => $gurl) {
                 error_log('[Property Plugin] Gallery image ' . ($gidx + 1) . ': ' . $gurl);
