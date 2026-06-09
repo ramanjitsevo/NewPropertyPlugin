@@ -1113,13 +1113,22 @@ function property_plugin_get_properties($request) {
                 }
             }
             
+            $thumb = get_the_post_thumbnail_url($post->ID, 'large');
+            if (!$thumb) {
+                $thumb = get_post_meta($post->ID, '_property_thumbnail_url', true);
+            }
+            if (!$thumb && !empty($gallery)) {
+                $thumb = $gallery[0];
+            }
+            $thumb = $thumb ?: '';
+
             $property_data = array(
                 'id' => $post->ID,
                 'title' => $post->post_title,
                 'content' => $post->post_content,
                 'excerpt' => $post->post_excerpt,
                 'date' => $post->post_date,
-                'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large') ?: (get_post_meta($post->ID, '_property_thumbnail_url', true) ?: ''),
+                'thumbnail' => $thumb,
                 'price' => property_plugin_format_price($price),
                 'area' => $area ? $area . ' sq ft' : 'N/A',
                 'address' => $address ?: 'Address not available',
@@ -1263,13 +1272,22 @@ function property_plugin_get_property($request) {
             }
         }
         
+        $thumb = get_the_post_thumbnail_url($post->ID, 'large');
+        if (!$thumb) {
+            $thumb = get_post_meta($post->ID, '_property_thumbnail_url', true);
+        }
+        if (!$thumb && !empty($gallery)) {
+            $thumb = $gallery[0];
+        }
+        $thumb = $thumb ?: '';
+
         $property_data = array(
             'id' => $post->ID,
             'title' => $post->post_title,
             'content' => $post->post_content,
             'excerpt' => $post->post_excerpt,
             'date' => $post->post_date,
-            'thumbnail' => get_the_post_thumbnail_url($post->ID, 'large') ?: (get_post_meta($post->ID, '_property_thumbnail_url', true) ?: ''),
+            'thumbnail' => $thumb,
             'price' => property_plugin_format_price($price),
             'area' => $area ? $area . ' sq ft' : 'N/A',
             'address' => $address ?: 'Address not available',

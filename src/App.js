@@ -630,17 +630,23 @@ function App({ containerId }) {
                         onClick={() => handlePropertyClick(property)}
                       >
                         <div className="property-image-container">
-                          {property.thumbnail ? (
-                            <img
-                              src={property.thumbnail}
-                              alt={property.title}
-                              className="property-image"
-                            />
-                          ) : (
-                            <div className="property-image-placeholder">
-                              <span>No Image</span>
-                            </div>
-                          )}
+                          {(() => {
+                            const imgSrc = property.thumbnail
+                              || property.thumbnail_url
+                              || (property.gallery && property.gallery.length > 0 ? property.gallery[0] : null)
+                              || (Array.isArray(property.gallery_urls) && property.gallery_urls.length > 0 ? property.gallery_urls[0] : null);
+                            return imgSrc ? (
+                              <img
+                                src={imgSrc}
+                                alt={property.title}
+                                className="property-image"
+                              />
+                            ) : (
+                              <div className="property-image-placeholder">
+                                <span>No Image</span>
+                              </div>
+                            );
+                          })()}
                           {settings.showBadge !== '0' && (
                             <div
                               className="property-badge"

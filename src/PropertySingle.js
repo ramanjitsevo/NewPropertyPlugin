@@ -322,9 +322,9 @@ function PropertySingle({ property, onBack, settings }) {
         <a href={`tel:${(settings?.agentPhone || '').replace(/[^+\d]/g, '')}`} className="btn-call">
           <i className="fas fa-phone"></i> {settings?.agentPhone || 'Call Agent'}
         </a>
-        <button className="btn-schedule" onClick={handleScheduleTour}>
+        {/* <button className="btn-schedule" onClick={handleScheduleTour}>
           <i className="far fa-calendar-check"></i> Schedule a Tour
-        </button>
+        </button> */}
         <button className="btn-request-info" onClick={scrollToContact}>
           Request Information
         </button>
