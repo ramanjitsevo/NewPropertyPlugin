@@ -864,6 +864,21 @@ function property_plugin_format_price($price) {
         return 'N/A';
     }
     
+    // If price already contains currency symbol and formatting, return as-is
+    if (preg_match('/[\$€£₹Rs]/', $price)) {
+        return $price;
+    }
+    
+    // Clean price string: remove commas, spaces, currency symbols
+    $clean_price = preg_replace('/[^0-9.]/', '', $price);
+    
+    // Convert to number
+    $numeric_price = floatval($clean_price);
+    
+    if ($numeric_price <= 0) {
+        return 'N/A';
+    }
+    
     $currency = get_option('property_plugin_default_currency', 'USD');
     
     $currency_symbols = array(
@@ -876,7 +891,7 @@ function property_plugin_format_price($price) {
     
     $symbol = isset($currency_symbols[$currency]) ? $currency_symbols[$currency] : '$';
     
-    return $symbol . number_format($price);
+    return $symbol . number_format($numeric_price);
 }
 
 /**
@@ -1709,6 +1724,12 @@ function property_plugin_activate() {
 
     // Create leads database table
     property_plugin_create_leads_table();
+
+    // ALWAYS reset import flags on activation to force fresh import
+    // This ensures re-installing the plugin will re-import all sample data
+    delete_option('property_plugin_default_data_installed');
+    delete_option('property_plugin_demo_created');
+    error_log('[Property Plugin] Activation: Reset import flags for fresh data import');
 
     // Install default sample data (10 properties + all settings)
     property_plugin_install_default_data();
