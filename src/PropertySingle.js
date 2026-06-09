@@ -325,9 +325,9 @@ function PropertySingle({ property, onBack, settings }) {
         {/* <button className="btn-schedule" onClick={handleScheduleTour}>
           <i className="far fa-calendar-check"></i> Schedule a Tour
         </button> */}
-        <button className="btn-request-info" onClick={scrollToContact}>
+        {/* <button className="btn-request-info" onClick={scrollToContact}>
           Request Information
-        </button>
+        </button> */}
       </div>
     </div>
   );

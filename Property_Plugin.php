@@ -2294,6 +2294,8 @@ function property_plugin_submit_lead($request) {
     $plain_body .= "Submitted at: $current_time\n";
     $plain_body .= "Website:      $site_name ($site_url)\n";
 
+    $subject = '[New Lead] ' . ($property_title ?: 'Property Inquiry') . ' — from ' . $name;
+
     $headers = array(
         'Content-Type: text/html; charset=UTF-8',
         'Reply-To: ' . $name . ' <' . $email . '>',
