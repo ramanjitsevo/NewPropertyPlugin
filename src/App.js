@@ -3,6 +3,26 @@ import './App.css';
 import PropertySingle from './PropertySingle';
 import LeadFormModal from './LeadFormModal';
 
+const getPropertySlug = (property) => {
+  const title = property?.title || 'property';
+  const slug = title
+    .toString()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return `${slug || 'property'}-${property?.id || ''}`.replace(/-$/, '');
+};
+
+const getPropertyShareUrl = (property) => {
+  if (typeof window === 'undefined') return '';
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('property', getPropertySlug(property));
+  return url.toString();
+};
+
 function App({ containerId }) {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +31,7 @@ function App({ containerId }) {
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [leadProperty, setLeadProperty] = useState(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [, setFavoritesVersion] = useState(0);
 
   // Get settings from WordPress
   const settings = window.propertyPluginData?.settings || {};
@@ -53,12 +74,50 @@ function App({ containerId }) {
     setCurrentPage(1);
   };
 
+  const isPropertyFavorite = (propertyId) => {
+    return getFavoriteIds().includes(Number(propertyId));
+  };
+
+  const togglePropertyFavorite = (event, propertyId) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const favoriteIds = getFavoriteIds();
+    const numericId = Number(propertyId);
+    const updated = favoriteIds.includes(numericId)
+      ? favoriteIds.filter(id => id !== numericId)
+      : [...favoriteIds, numericId];
+
+    localStorage.setItem('property_favorites', JSON.stringify(updated));
+    setFavoritesVersion(version => version + 1);
+    setCurrentPage(1);
+  };
+
   useEffect(() => {
     console.log('Property Plugin App loaded!');
     console.log('Container ID:', containerId);
     console.log('Property Plugin Data:', window.propertyPluginData);
     fetchProperties();
   }, []);
+
+  useEffect(() => {
+    if (!properties.length || selectedProperty || typeof window === 'undefined') return;
+
+    const propertyParam = new URLSearchParams(window.location.search).get('property');
+    if (!propertyParam) return;
+
+    const idMatch = propertyParam.match(/-(\d+)$/);
+    const propertyFromUrl = properties.find((property) => {
+      if (idMatch && Number(property.id) === Number(idMatch[1])) return true;
+      return getPropertySlug(property) === propertyParam;
+    });
+
+    if (propertyFromUrl) {
+      localStorage.setItem('propertyLeadFormSubmitted', 'true');
+      setSelectedProperty(propertyFromUrl);
+      window.scrollTo(0, 0);
+    }
+  }, [properties, selectedProperty]);
 
   const fetchProperties = async () => {
     try {
@@ -107,6 +166,7 @@ function App({ containerId }) {
     // If user has already submitted the form, go directly to property page
     if (hasSubmittedLeadForm) {
       setSelectedProperty(property);
+      window.history.pushState(null, '', getPropertyShareUrl(property));
       window.scrollTo(0, 0);
     } else {
       // Otherwise show the lead form
@@ -130,12 +190,18 @@ function App({ containerId }) {
     // Close the modal and open the property page
     setShowLeadForm(false);
     setSelectedProperty(leadProperty);
+    window.history.pushState(null, '', getPropertyShareUrl(leadProperty));
     setLeadProperty(null);
     window.scrollTo(0, 0);
   };
 
   const handleBackToList = () => {
     setSelectedProperty(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('property');
+      window.history.pushState(null, '', url.toString());
+    }
   };
 
   // Get unique property types from the properties data
@@ -342,17 +408,7 @@ function App({ containerId }) {
       {/* Apply custom CSS from settings */}
       {settings.customCSS && (
         <style dangerouslySetInnerHTML={{ __html: settings.customCSS }} />
-      )}
-
-      {/* Apply global styles from settings */}
-      <style>{`
-        .property-plugin-app {
-          font-family: ${settings.fontFamily || 'Arial, sans-serif'};
-          font-size: ${settings.fontSize || '16'}px;
-          color: ${settings.textColor || '#1f2937'};
-          background-color: ${settings.backgroundColor || '#f3f4f6'};
-        }
-      `}</style>
+      )}     
 
       {/* Lead Form Modal */}
       {showLeadForm && leadProperty && (
@@ -448,24 +504,6 @@ function App({ containerId }) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="search-field">
-              <label>Min Price</label>
-              <input
-                type="number"
-                placeholder="Min Price"
-                value={filters.minPrice}
-                onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-              />
-            </div>
-            <div className="search-field">
-              <label>Max Price</label>
-              <input
-                type="number"
-                placeholder="Max Price"
-                value={filters.maxPrice}
-                onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-              />
             </div>
             <button className="btn-search" onClick={handleSearch}>Search Properties</button>
           </div>
@@ -567,7 +605,7 @@ function App({ containerId }) {
                     >
                       Any
                     </button>
-                    {[1, 2, 3, 4, '5+'].map(num => (
+                    {[1, 2, '3+'].map(num => (
                       <button
                         key={num}
                         className={`number-btn ${filters.bedrooms === num.toString() ? 'active' : ''}`}
@@ -588,7 +626,7 @@ function App({ containerId }) {
                     >
                       Any
                     </button>
-                    {[1, 2, 3, 4, '5+'].map(num => (
+                    {[1, 2, '3+'].map(num => (
                       <button
                         key={num}
                         className={`number-btn ${filters.bathrooms === num.toString() ? 'active' : ''}`}
@@ -619,10 +657,7 @@ function App({ containerId }) {
                     {showFavoritesOnly
                       ? `Showing ${indexOfFirstPost + 1}-${Math.min(indexOfLastPost, filteredProperties.length)} of ${filteredProperties.length} Saved Properties`
                       : `Showing ${indexOfFirstPost + 1}-${Math.min(indexOfLastPost, filteredProperties.length)} of ${filteredProperties.length} Properties`}
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>
-                    Available Types: {uniquePropertyTypes.length > 0 ? uniquePropertyTypes.join(', ') : 'None found'}
-                  </p>
+                  </p>                 
                 </div>
                 <div className="sort-options">
                   <button
@@ -671,6 +706,7 @@ function App({ containerId }) {
                 ) : (
                   currentPosts.map((property) => {
                     const statusInfo = getStatusBadge(property.status);
+                    const isFavorite = isPropertyFavorite(property.id);
                     return (
                       <div
                         key={property.id}
@@ -707,6 +743,15 @@ function App({ containerId }) {
                               {statusInfo.label}
                             </div>
                           )}
+                          <button
+                            type="button"
+                            className={`btn-favorite ${isFavorite ? 'active' : ''}`}
+                            onClick={(event) => togglePropertyFavorite(event, property.id)}
+                            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            <i className={`${isFavorite ? 'fas' : 'far'} fa-heart`}></i>
+                          </button>
                         </div>
                         <div className="property-details">
                           <h3 className="property-name">{property.title}</h3>

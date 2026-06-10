@@ -708,7 +708,7 @@ function property_plugin_settings_page() {
                                 </th>
                                 <td>
                                     <input type="email" id="contact_email" name="property_plugin_contact_email" 
-                                           value="<?php echo esc_attr(get_option('property_plugin_contact_email', '')); ?>" 
+                                           value="<?php echo esc_attr(function_exists('property_plugin_get_contact_email') ? property_plugin_get_contact_email() : get_option('property_plugin_contact_email', get_option('admin_email'))); ?>" 
                                            class="regular-text" />
                                     <p class="description"><?php _e('Email address for contact inquiries', 'property-plugin'); ?></p>
                                 </td>
@@ -1662,40 +1662,224 @@ add_action('wp_ajax_property_plugin_delete_taxonomy', 'property_plugin_delete_ta
 function property_plugin_leads_page() {
     global $wpdb;
     $table = $wpdb->prefix . 'property_leads';
-    $leads = $wpdb->get_results("SELECT * FROM $table ORDER BY created_at DESC LIMIT 500");
+
+    if (!current_user_can('manage_options')) {
+        wp_die(esc_html__('You do not have permission to view leads.', 'property-plugin'));
+    }
+
+    if (
+        isset($_GET['action'], $_GET['lead_id'], $_GET['_wpnonce'])
+        && $_GET['action'] === 'delete'
+    ) {
+        $lead_id = absint($_GET['lead_id']);
+        if ($lead_id && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'property_plugin_delete_lead_' . $lead_id)) {
+            $deleted = $wpdb->delete($table, array('id' => $lead_id), array('%d'));
+            $lead_notice = $deleted ? 'deleted' : 'not_deleted';
+        } else {
+            $lead_notice = 'invalid';
+        }
+
+        wp_safe_redirect(add_query_arg(
+            array(
+                'page' => 'property-plugin-leads',
+                's' => isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '',
+                'order' => isset($_GET['order']) ? sanitize_text_field(wp_unslash($_GET['order'])) : 'desc',
+                'paged' => isset($_GET['paged']) ? absint($_GET['paged']) : 1,
+                'lead_notice' => $lead_notice,
+            ),
+            admin_url('admin.php')
+        ));
+        exit;
+    }
+
+    $notice = '';
+    if (isset($_GET['lead_notice'])) {
+        $lead_notice = sanitize_text_field(wp_unslash($_GET['lead_notice']));
+        if ($lead_notice === 'deleted') {
+            $notice = __('Lead deleted successfully.', 'property-plugin');
+        } elseif ($lead_notice === 'not_deleted') {
+            $notice = __('Lead could not be deleted or was already removed.', 'property-plugin');
+        } elseif ($lead_notice === 'invalid') {
+            $notice = __('Invalid delete request.', 'property-plugin');
+        }
+    }
+
+    $search = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
+    $order = isset($_GET['order']) && strtolower(sanitize_text_field(wp_unslash($_GET['order']))) === 'asc' ? 'ASC' : 'DESC';
+    $paged = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
+    $per_page = 20;
+    $offset = ($paged - 1) * $per_page;
+
+    $where = 'WHERE 1=1';
+    $where_params = array();
+    if ($search !== '') {
+        $like = '%' . $wpdb->esc_like($search) . '%';
+        $where .= ' AND (property_title LIKE %s OR name LIKE %s OR email LIKE %s OR phone LIKE %s OR message LIKE %s OR CAST(property_id AS CHAR) LIKE %s)';
+        $where_params = array($like, $like, $like, $like, $like, $like);
+    }
+
+    $count_sql = "SELECT COUNT(*) FROM $table $where";
+    $total_items = !empty($where_params)
+        ? (int) $wpdb->get_var($wpdb->prepare($count_sql, $where_params))
+        : (int) $wpdb->get_var($count_sql);
+
+    $query_params = array_merge($where_params, array($per_page, $offset));
+    $leads_sql = "SELECT * FROM $table $where ORDER BY created_at $order, id $order LIMIT %d OFFSET %d";
+    $leads = $wpdb->get_results($wpdb->prepare($leads_sql, $query_params));
+    $total_pages = max(1, (int) ceil($total_items / $per_page));
+    $date_sort_url = add_query_arg(
+        array(
+            'page' => 'property-plugin-leads',
+            's' => $search,
+            'order' => $order === 'ASC' ? 'desc' : 'asc',
+            'paged' => 1,
+        ),
+        admin_url('admin.php')
+    );
     ?>
     <div class="wrap property-plugin-leads">
         <h1><?php _e('Captured Leads', 'property-plugin'); ?></h1>
-        <p class="description"><?php _e('Leads captured from the property detail pages are listed below. You can export or delete leads manually using the database tools.', 'property-plugin'); ?></p>
+        <p class="description"><?php _e('Leads captured from the property detail pages are listed below.', 'property-plugin'); ?></p>
+
+        <?php if ($notice): ?>
+            <div class="notice notice-info is-dismissible"><p><?php echo esc_html($notice); ?></p></div>
+        <?php endif; ?>
+
+        <style>
+            .property-plugin-leads .column-id,
+            .property-plugin-leads .column-property-id {
+                width: 72px;
+            }
+            .property-plugin-leads .column-actions {
+                width: 92px;
+            }
+            .property-plugin-leads .column-message {
+                width: 28%;
+                white-space: normal;
+                word-break: break-word;
+            }
+            .property-plugin-leads .lead-controls {
+                align-items: center;
+                display: flex;
+                gap: 10px;
+                justify-content: space-between;
+                margin: 16px 0;
+            }
+            .property-plugin-leads .lead-search {
+                display: flex;
+                gap: 8px;
+            }
+            .property-plugin-leads .tablenav-pages {
+                margin: 12px 0;
+                text-align: right;
+            }
+        </style>
+
+        <div class="lead-controls">
+            <form class="lead-search" method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>">
+                <input type="hidden" name="page" value="property-plugin-leads" />
+                <input type="hidden" name="order" value="<?php echo esc_attr(strtolower($order)); ?>" />
+                <label class="screen-reader-text" for="property-lead-search"><?php _e('Search leads', 'property-plugin'); ?></label>
+                <input type="search" id="property-lead-search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="<?php esc_attr_e('Search leads...', 'property-plugin'); ?>" />
+                <button type="submit" class="button"><?php _e('Search', 'property-plugin'); ?></button>
+                <?php if ($search !== ''): ?>
+                    <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=property-plugin-leads')); ?>"><?php _e('Clear', 'property-plugin'); ?></a>
+                <?php endif; ?>
+            </form>
+            <span>
+                <?php
+                printf(
+                    esc_html(_n('%s lead', '%s leads', $total_items, 'property-plugin')),
+                    esc_html(number_format_i18n($total_items))
+                );
+                ?>
+            </span>
+        </div>
 
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
-                    <th><?php _e('ID', 'property-plugin'); ?></th>
+                    <th class="column-id"><?php _e('ID', 'property-plugin'); ?></th>
+                    <th class="column-property-id"><?php _e('Property ID', 'property-plugin'); ?></th>
                     <th><?php _e('Property', 'property-plugin'); ?></th>
                     <th><?php _e('Name', 'property-plugin'); ?></th>
                     <th><?php _e('Email', 'property-plugin'); ?></th>
                     <th><?php _e('Phone', 'property-plugin'); ?></th>
-                    <th><?php _e('Message', 'property-plugin'); ?></th>
-                    <th><?php _e('Submitted', 'property-plugin'); ?></th>
+                    <th class="column-message"><?php _e('Message', 'property-plugin'); ?></th>
+                    <th>
+                        <a href="<?php echo esc_url($date_sort_url); ?>">
+                            <?php _e('Submitted', 'property-plugin'); ?>
+                            <span aria-hidden="true"><?php echo $order === 'ASC' ? '↑' : '↓'; ?></span>
+                        </a>
+                    </th>
+                    <th class="column-actions"><?php _e('Actions', 'property-plugin'); ?></th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($leads)) : ?>
-                    <tr><td colspan="7"><?php _e('No leads captured yet.', 'property-plugin'); ?></td></tr>
+                    <tr><td colspan="9"><?php _e('No leads found.', 'property-plugin'); ?></td></tr>
                 <?php else: foreach ($leads as $lead): ?>
+                    <?php
+                    $delete_url = wp_nonce_url(
+                        add_query_arg(
+                            array(
+                                'page' => 'property-plugin-leads',
+                                'action' => 'delete',
+                                'lead_id' => absint($lead->id),
+                                's' => $search,
+                                'order' => strtolower($order),
+                                'paged' => $paged,
+                            ),
+                            admin_url('admin.php')
+                        ),
+                        'property_plugin_delete_lead_' . absint($lead->id)
+                    );
+                    ?>
                     <tr>
-                        <td><?php echo esc_html($lead->id); ?></td>
-                        <td><?php echo esc_html($lead->property_title . ' (#' . $lead->property_id . ')'); ?></td>
+                        <td class="column-id"><?php echo esc_html($lead->id); ?></td>
+                        <td class="column-property-id"><?php echo esc_html($lead->property_id); ?></td>
+                        <td><?php echo esc_html($lead->property_title); ?></td>
                         <td><?php echo esc_html($lead->name); ?></td>
-                        <td><?php echo esc_html($lead->email); ?></td>
+                        <td><a href="mailto:<?php echo esc_attr($lead->email); ?>"><?php echo esc_html($lead->email); ?></a></td>
                         <td><?php echo esc_html($lead->phone); ?></td>
-                        <td style="max-width:320px; white-space:normal; word-break:break-word"><?php echo esc_html($lead->message); ?></td>
+                        <td class="column-message"><?php echo esc_html($lead->message); ?></td>
                         <td><?php echo esc_html($lead->created_at); ?></td>
+                        <td class="column-actions">
+                            <a
+                                href="<?php echo esc_url($delete_url); ?>"
+                                class="submitdelete"
+                                onclick="return confirm('<?php echo esc_js(__('Delete this lead permanently?', 'property-plugin')); ?>');"
+                            >
+                                <?php _e('Delete', 'property-plugin'); ?>
+                            </a>
+                        </td>
                     </tr>
                 <?php endforeach; endif; ?>
             </tbody>
         </table>
+
+        <?php if ($total_pages > 1): ?>
+            <div class="tablenav-pages">
+                <?php
+                echo paginate_links(array(
+                    'base' => add_query_arg(
+                        array(
+                            'page' => 'property-plugin-leads',
+                            's' => $search,
+                            'order' => strtolower($order),
+                            'paged' => '%#%',
+                        ),
+                        admin_url('admin.php')
+                    ),
+                    'format' => '',
+                    'current' => $paged,
+                    'total' => $total_pages,
+                    'prev_text' => __('&laquo;', 'property-plugin'),
+                    'next_text' => __('&raquo;', 'property-plugin'),
+                ));
+                ?>
+            </div>
+        <?php endif; ?>
     </div>
     <?php
 }

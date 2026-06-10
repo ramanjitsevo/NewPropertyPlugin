@@ -64,6 +64,35 @@ const normalizeArrayField = (rawValue) => {
   return [];
 };
 
+const getPropertyInquiryMessage = (property) => {
+  const title = property?.title || 'this property';
+  const details = [
+    property?.price ? `Price: ${property.price}` : '',
+    [property?.address, property?.city, property?.state].filter(Boolean).join(', '),
+  ].filter(Boolean);
+
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  return [
+    `Hi, I am interested in ${title}.`,
+    details.length ? details.join(' | ') : '',
+    pageUrl ? `Property link: ${pageUrl}` : '',
+    'Please share more details and availability for a visit.',
+  ].filter(Boolean).join('\n');
+};
+
+const getPropertySlug = (property) => {
+  const title = property?.title || 'property';
+  const slug = title
+    .toString()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return `${slug || 'property'}-${property?.id || ''}`.replace(/-$/, '');
+};
+
 function PropertySingle({ property, onBack, settings }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [mainImage, setMainImage] = useState(0);
@@ -72,11 +101,12 @@ function PropertySingle({ property, onBack, settings }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [copyToast, setCopyToast] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    message: "I'm interested in this property..."
+    message: getPropertyInquiryMessage(property),
   });
 
   const contactFormRef = useRef(null);
@@ -133,6 +163,15 @@ function PropertySingle({ property, onBack, settings }) {
   ];
 
   const faqItems = customFaqItems.length ? customFaqItems : fallbackFaqItems;
+
+  const propertyAgent = property?.agent || {};
+  const activeAgent = {
+    name: propertyAgent.name || property?.agent_name || property?.agentName || settings?.agentName || 'Default Agent',
+    role: propertyAgent.role || property?.agent_role || property?.agentRole || settings?.agentRole || 'Property Agent',
+    phone: propertyAgent.phone || property?.agent_phone || property?.agentPhone || settings?.agentPhone || '',
+    email: propertyAgent.email || property?.agent_email || property?.agentEmail || settings?.agentEmail || settings?.contactEmail || '',
+    photo: propertyAgent.photo || property?.agent_photo || property?.agentPhoto || settings?.agentPhoto || '',
+  };
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -192,7 +231,7 @@ function PropertySingle({ property, onBack, settings }) {
       const result = await data.json();
       if (!data.ok) throw new Error(result.message || `Server error (${data.status})`);
       setSubmitSuccess(true);
-      setFormData({ name: '', email: '', phone: '', message: "I'm interested in this property..." });
+      setFormData({ name: '', email: '', phone: '', message: getPropertyInquiryMessage(property) });
     } catch (err) {
       setSubmitError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -213,7 +252,12 @@ function PropertySingle({ property, onBack, settings }) {
   };
 
   // SEO Helper functions
-  const getPageUrl = () => window.location.href;
+  const getPageUrl = () => {
+    if (typeof window === 'undefined') return '';
+    const url = new URL(window.location.href);
+    url.searchParams.set('property', getPropertySlug(property));
+    return url.toString();
+  };
   const getPageTitle = () => property?.title || 'Check out this property';
   const getPropertyDescription = () => {
     if (property?.content) {
@@ -226,10 +270,7 @@ function PropertySingle({ property, onBack, settings }) {
     return `${property?.title || 'Property'} located at ${property?.address || ''}, ${property?.city || ''}. ${property?.bedrooms || ''} bed, ${property?.bathrooms || ''} bath, ${property?.area || ''} sq ft.`;
   };
 
-  const getCanonicalUrl = () => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    return baseUrl;
-  };
+  const getCanonicalUrl = () => getPageUrl();
 
   // Update document head for SEO
   useEffect(() => {
@@ -302,15 +343,29 @@ function PropertySingle({ property, onBack, settings }) {
   }, [property?.title, property?.address, property?.city, property?.content]);
 
   const handleShare = async () => {
-    const url = window.location.href;
-    const title = property?.title || 'Check out this property';
-    if (navigator.share) {
-      try { await navigator.share({ title, url }); } catch (_) {}
-    } else {
+    const url = getPageUrl();
+    try {
       await navigator.clipboard.writeText(url);
-      alert('Property link copied to clipboard!');
+      setCopyToast('Property link copied');
+    } catch (err) {
+      const fallback = document.createElement('textarea');
+      fallback.value = url;
+      fallback.setAttribute('readonly', '');
+      fallback.style.position = 'fixed';
+      fallback.style.left = '-9999px';
+      document.body.appendChild(fallback);
+      fallback.select();
+      document.execCommand('copy');
+      document.body.removeChild(fallback);
+      setCopyToast('Property link copied');
     }
   };
+
+  useEffect(() => {
+    if (!copyToast) return undefined;
+    const timer = window.setTimeout(() => setCopyToast(''), 2400);
+    return () => window.clearTimeout(timer);
+  }, [copyToast]);
 
   const renderBottomBar = () => (
     <div className="property-bottom-bar property-bottom-bar-spaced">
@@ -319,8 +374,8 @@ function PropertySingle({ property, onBack, settings }) {
         <span className="price-badge">{statusLabel}</span>
       </div>
       <div className="bottom-actions">
-        <a href={`tel:${(settings?.agentPhone || '').replace(/[^+\d]/g, '')}`} className="btn-call">
-          <i className="fas fa-phone"></i> {settings?.agentPhone || 'Call Agent'}
+        <a href={`tel:${(activeAgent.phone || '').replace(/[^+\d]/g, '')}`} className="btn-call">
+          <i className="fas fa-phone"></i> {activeAgent.phone || 'Call Agent'}
         </a>
         {/* <button className="btn-schedule" onClick={handleScheduleTour}>
           <i className="far fa-calendar-check"></i> Schedule a Tour
@@ -695,7 +750,7 @@ function PropertySingle({ property, onBack, settings }) {
                 <h2 id="property-faq-heading" className="section-heading">Frequently Asked Questions</h2>
                 <div className="property-faq-list">
                   {faqItems.map((item, idx) => (
-                    <details className="property-faq-item" key={idx}>
+                    <details className="property-faq-item" key={idx} open={idx === 0}>
                       <summary>{item.question}</summary>
                       <p>{item.answer}</p>
                     </details>
@@ -726,39 +781,30 @@ function PropertySingle({ property, onBack, settings }) {
                 <div className="stat-item">
                   <span className="stat-icon"><i className="fas fa-bed"></i></span>
                   <div>
-                    <span className="stat-value">{property.bedrooms || '0'}</span>
-                    <span className="stat-label">Bedrooms</span>
+                    <span className="stat-value">{property.bedrooms || '0'}</span>                    
                   </div>
                 </div>
                 <div className="stat-item">
                   <span className="stat-icon"><i className="fas fa-bath"></i></span>
                   <div>
-                    <span className="stat-value">{property.bathrooms || '0'}</span>
-                    <span className="stat-label">Bathrooms</span>
+                    <span className="stat-value">{property.bathrooms || '0'}</span>                    
                   </div>
                 </div>
                 <div className="stat-item">
                   <div>
-                    <span className="stat-value">{property.area || '0'}</span>
-                    <span className="stat-label">Sq Ft</span>
+                    <span className="stat-value">{property.area || '0'} Sq Ft</span>                    
                   </div>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-icon"><i className="fas fa-car"></i></span>
+                  <span className="stat-icon"><i className="fas fa-building"></i></span>
                   <div>
-                    <span className="stat-value">{property.garage || '0'}</span>
-                    <span className="stat-label">Garage</span>
+                    <span className="stat-value">{property.property_type || '0'}</span>                    
                   </div>
                 </div>
               </div>
 
               <div className="property-info-list">
-                <h4 className="property-title">Location Detail</h4>
-                <dl>
-                  <div className="info-row">
-                    <dt className="info-label"><i className="fas fa-building" aria-hidden="true"></i> Property Type:</dt>
-                    <dd className="info-value" itemProp="propertyType">{property.property_type || 'N/A'}</dd>
-                  </div>
+                <h4 className="property-title">Location Detail</h4>                  
                   {property.city && (
                     <div className="info-row">
                       <dt className="info-label"><i className="fas fa-city" aria-hidden="true"></i> City:</dt>
@@ -782,8 +828,36 @@ function PropertySingle({ property, onBack, settings }) {
                       <dt className="info-label"><i className="fas fa-globe" aria-hidden="true"></i> Country:</dt>
                       <dd className="info-value" itemProp="addressCountry">{property.country}</dd>
                     </div>
+                  )}               
+              </div>
+            </div>
+
+            <div className="agent-card">
+              <h2>Agent Details</h2>
+              <div className="agent-details">
+                {activeAgent.photo ? (
+                  <img src={activeAgent.photo} alt={activeAgent.name} className="agent-photo" loading="lazy" />
+                ) : (
+                  <div className="agent-photo agent-photo-placeholder" aria-hidden="true">
+                    <i className="fas fa-user-tie"></i>
+                  </div>
+                )}
+                <div className="agent-info">
+                  <h3 className="agent-name">{activeAgent.name}</h3>
+                  <p className="agent-role">{activeAgent.role}</p>
+                  {activeAgent.phone && (
+                    <a href={`tel:${activeAgent.phone.replace(/[^+\d]/g, '')}`} className="agent-link">
+                      <i className="fas fa-phone"></i>
+                      <span>{activeAgent.phone}</span>
+                    </a>
                   )}
-                </dl>
+                  {activeAgent.email && (
+                    <a href={`mailto:${activeAgent.email}`} className="agent-link">
+                      <i className="fas fa-envelope"></i>
+                      <span>{activeAgent.email}</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -831,7 +905,7 @@ function PropertySingle({ property, onBack, settings }) {
                 <div className="form-group">
                   <textarea
                     name="message"
-                    placeholder="I'm interested in this property..."
+                    placeholder="Tell us what you would like to know about this property..."
                     value={formData.message}
                     onChange={handleInputChange}
                     rows="4"
@@ -854,6 +928,12 @@ function PropertySingle({ property, onBack, settings }) {
             </div>
 
             <div className="property-actions">
+              {copyToast && (
+                <div className="property-copy-toast" role="status" aria-live="polite">
+                  <i className="fas fa-check"></i>
+                  <span>{copyToast}</span>
+                </div>
+              )}
               <button className="action-btn" onClick={toggleFavorite}>
                 <span className="action-icon">
                   <i className={`${isFavorite ? 'fas' : 'far'} fa-heart ${isFavorite ? 'favorite-icon-active' : ''}`}></i>

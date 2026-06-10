@@ -442,26 +442,66 @@
 .property-faq-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .property-faq-item {
-  padding: 16px 18px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
 .property-faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #eff6ff;
   color: #1a1a2e;
   cursor: pointer;
   font-weight: 700;
   font-size: 16px;
+  list-style: none;
+}
+
+.property-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.property-faq-item summary::after {
+  content: "+";
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+}
+
+.property-faq-item[open] summary {
+  background: #dbeafe;
+}
+
+.property-faq-item[open] summary::after {
+  content: "-";
 }
 
 .property-faq-item p {
-  margin-top: 10px;
+  margin: 0;
+  padding: 16px 18px;
+  background: #f8fafc;
   color: #555;
   font-size: 16px;
+  line-height: 1.7;
 }
 
 /* Bottom Bar */
@@ -574,10 +614,18 @@
 }
 
 .property-title {
-  font-size: 26px;
+  font-size: 16px;
   color: #1a1a2e;
-  margin-bottom: 8px;
+  margin-bottom: 8px !important;
 }
+
+h1.property-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+ }
 
 .property-address {
   font-size: 14px;
@@ -585,8 +633,7 @@
   margin-bottom: 15px;
 }
 
-.property-address i{
-  color: red;
+.property-address i{  
   margin-right: 5px;
 }
 
@@ -598,7 +645,7 @@
 
 .price {
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 500;
   color: #2196f3;
 }
 
@@ -669,6 +716,74 @@
   font-weight: 500;
 }
 
+/* Agent Card */
+.agent-card {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.agent-card h2 {
+  font-size: 18px;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+}
+
+.agent-details {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.agent-photo {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.agent-photo-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e3f2fd;
+  color: #2196f3;
+  font-size: 26px;
+}
+
+.agent-info {
+  min-width: 0;
+}
+
+.agent-name {
+  font-size: 18px;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.agent-role {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.agent-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #333;
+  font-size: 13px;
+  text-decoration: none;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+.agent-link:hover {
+  color: #2196f3;
+}
+
 /* Contact Form */
 .contact-form-card {
   background: white;
@@ -693,8 +808,8 @@
   margin-bottom: 15px;
 }
 
-.form-group input,
-.form-group textarea {
+.contact-form-card .form-group input,
+.contact-form-card .form-group textarea {
   width: 100%;
   padding: 12px;
   border: 1px solid #ddd;
@@ -780,6 +895,19 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.property-copy-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .action-btn {

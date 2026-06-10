@@ -1,6 +1,5 @@
 /* Global Styles */
-.property-plugin-app {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+.property-plugin-app {  
   color: #333;
   line-height: 1.6;
   width: 100vw;
@@ -18,10 +17,13 @@
   padding: 0;
 }
 
-.property-plugin-container{
-  /* max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 40px; */
+.price-range-inputs{
+  display: flex;
+  gap:10px
+}
+
+.price-range-inputs input {
+    border-radius: 5px !important;
 }
 
 .btn-add-property {
@@ -140,9 +142,9 @@
 .search-field input,
 .search-field select {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  padding: 12px !important;
+  border: 1px solid #ddd !important;
+  border-radius: 5px !important;
   font-size: 14px;
   transition: border-color 0.3s;
 }
@@ -153,6 +155,53 @@
   border-color: #4fc3f7;
 }
 
+.property-plugin-app select {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 44px 11px 14px !important;
+  border: 1px solid #d8e0ea !important;
+  border-radius: 8px !important;
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #2563eb 50%),
+    linear-gradient(135deg, #2563eb 50%, transparent 50%),
+    linear-gradient(to right, #e7edf5, #e7edf5);
+  background-position:
+    calc(100% - 22px) 50%,
+    calc(100% - 16px) 50%,
+    calc(100% - 42px) 50%;
+  background-size:
+    6px 6px,
+    6px 6px,
+    1px 24px;
+  background-repeat: no-repeat;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.35;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.property-plugin-app select:hover {
+  border-color: #93c5fd !important;
+  background-color: #f8fbff;
+}
+
+.property-plugin-app select:focus {
+  outline: none;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.property-plugin-app select:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+}
+
 .btn-search {
   background: #2196f3;
   color: white;
@@ -160,8 +209,8 @@
   padding: 12px 30px;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 500;
   transition: background 0.3s;
   align-self: end;
 }
@@ -224,6 +273,7 @@
 .filter-header h3 {
   font-size: 18px;
   color: #1a1a2e;
+  margin-bottom: 0px;
 }
 
 .btn-reset {
@@ -231,7 +281,8 @@
   border: none;
   color: #4fc3f7;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .filter-group {
@@ -257,6 +308,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 300px;
+    overflow-y: scroll;
 }
 
 .filter-options label {
@@ -410,13 +463,11 @@
 .sort-options label {
   font-size: 14px;
   color: #666;
+  min-width: 50px;
 }
 
 .sort-options select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 14px;
+  min-width: 180px;
 }
 
 .btn-favorites-toggle {
@@ -545,19 +596,36 @@
   top: 15px;
   right: 15px;
   background: rgba(255, 255, 255, 0.9);
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.7);
   width: 35px;
   height: 35px;
   border-radius: 50%;
   cursor: pointer;
   font-size: 18px;
   color: #666;
-  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  z-index: 2;
 }
 
 .btn-favorite:hover {
   background: white;
   color: #f44336;
+  transform: translateY(-1px);
+}
+
+.btn-favorite.active {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.btn-favorite.active:hover {
+  background: #ffe4e6;
+  color: #be123c;
 }
 
 .property-details {
@@ -569,9 +637,15 @@
 
 .property-name {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a2e;
   margin-bottom: 8px;
+  display: -webkit-box;
+  min-height: 48px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .property-address {
@@ -582,8 +656,7 @@
 
 .property-price {
   font-size: 22px;
-  font-weight: bold;
-  color: #2196f3;
+  font-weight: bold;  
   margin-bottom: 15px;
 }
 
@@ -592,10 +665,11 @@
   gap: 12px;
   padding-top: 12px;
   border-top: 1px solid #f0f0f0;
-  font-size: 12px;
+  font-size: 14px;
   color: #666;
   flex-wrap: nowrap;
   overflow: hidden;
+  justify-content: space-between;
 }
 
 .property-features span {
@@ -607,7 +681,7 @@
 }
 
 .property-features span i {
-  font-size: 13px;
+  font-size: 14px;
   color: #667eea;
 }
 
@@ -696,6 +770,8 @@
 
 .btn-add-property-large:hover {
   transform: scale(1.05);
+    color: white;
+    opacity: 0.9;
 }
 
 /* Features Section */

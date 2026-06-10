@@ -444,7 +444,7 @@
     ]
   },
   {
-    "title": "Urban Loft \u2014 Chicago, Illinois",
+    "title": "Urban Loft \u2014 Chicago, Illinois villa",
     "content": "Stunning industrial-style loft in Chicago's trendy West Loop neighborhood. This open-concept space features exposed brick, 14-foot ceilings, polished concrete floors, and oversized windows with city views.\n\nBuilding includes rooftop deck, fitness center, and bike storage. Steps from acclaimed restaurants, galleries, and public transit.",
     "excerpt": "Industrial-style loft in Chicago's West Loop with exposed brick and city views.",
     "price": "495000",
@@ -461,9 +461,8 @@
     "bathrooms": "2",
     "floor": "5",
     "garage": "1",
-    "thumbnail_url": "https://images.unsplash.com/photo-1505691723518-36a1fb9fa2d9?w=1200&q=80",
-    "gallery_urls": [
-      "https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200&q=80",
+    "thumbnail_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
+    "gallery_urls": [      
       "https://images.unsplash.com/photo-1501183638710-841dd1904471?w=1200&q=80",
       "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80"
     ],

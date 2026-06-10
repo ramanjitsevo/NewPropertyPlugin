@@ -49,8 +49,30 @@ function property_plugin_init() {
     // Add meta boxes for property details
     add_action('add_meta_boxes', 'property_plugin_add_meta_boxes');
     add_action('save_post', 'property_plugin_save_meta_boxes');
+    add_action('admin_enqueue_scripts', 'property_plugin_enqueue_admin_assets');
 }
 add_action('plugins_loaded', 'property_plugin_init');
+
+/**
+ * Enqueue admin assets used by the property edit screen.
+ */
+function property_plugin_enqueue_admin_assets($hook) {
+    if (!in_array($hook, array('post.php', 'post-new.php'), true)) {
+        return;
+    }
+
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if (!$screen || $screen->post_type !== 'property') {
+        return;
+    }
+
+    wp_enqueue_style(
+        'property-plugin-admin-font-awesome',
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+        array(),
+        '6.5.1'
+    );
+}
 
 /**
  * Register Property Custom Post Type
@@ -273,13 +295,13 @@ function property_plugin_meta_box_callback($post) {
     ?>
     <div class="pp-tabs" style="display:flex; gap:16px; align-items:flex-start;">
         <div class="pp-tab-list" style="width:220px; background:#fff; border:1px solid #ccd0d4; border-radius:4px; padding:8px;">
-            <button type="button" class="pp-tab-button active" data-tab="basic" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('Basic', 'property-plugin'); ?></button>
-            <button type="button" class="pp-tab-button" data-tab="location" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('Location', 'property-plugin'); ?></button>
-            <button type="button" class="pp-tab-button" data-tab="features" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('Features', 'property-plugin'); ?></button>
-            <button type="button" class="pp-tab-button" data-tab="gallery" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('Gallery', 'property-plugin'); ?></button>
-            <button type="button" class="pp-tab-button" data-tab="agent" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('Agent', 'property-plugin'); ?></button>
-            <button type="button" class="pp-tab-button" data-tab="faq" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('FAQs', 'property-plugin'); ?></button>
-            <button type="button" class="pp-tab-button" data-tab="additional" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><?php _e('Additional Details', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button active" data-tab="basic" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-circle-info" aria-hidden="true"></i><?php _e('Basic', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button" data-tab="location" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-location-dot" aria-hidden="true"></i><?php _e('Location', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button" data-tab="features" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-list-check" aria-hidden="true"></i><?php _e('Features', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button" data-tab="gallery" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-images" aria-hidden="true"></i><?php _e('Gallery', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button" data-tab="faq" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-circle-question" aria-hidden="true"></i><?php _e('FAQs', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button" data-tab="additional" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-table-list" aria-hidden="true"></i><?php _e('Additional Details', 'property-plugin'); ?></button>
+            <button type="button" class="pp-tab-button" data-tab="agent" style="width:100%; padding:10px; text-align:left; border:none; background:transparent; cursor:pointer;"><i class="fas fa-user-tie" aria-hidden="true"></i><?php _e('Agent', 'property-plugin'); ?></button>
         </div>
 
         <div class="pp-tab-content" style="flex:1; background:#fff; border:1px solid #ccd0d4; border-radius:4px; padding:16px;">
@@ -485,7 +507,9 @@ function property_plugin_meta_box_callback($post) {
 
     <style>
     .pp-tab-list .pp-tab-button.active { background:#f0f6fc; color:#2271b1; font-weight:600; border-left:3px solid #2271b1; }
-    .pp-tab-list .pp-tab-button { border-left:3px solid transparent; }
+    .pp-tab-list .pp-tab-button { border-left:3px solid transparent; display:flex; align-items:center; gap:9px; }
+    .pp-tab-list .pp-tab-button i { width:16px; color:#646970; text-align:center; }
+    .pp-tab-list .pp-tab-button.active i { color:#2271b1; }
     
     /* Responsive Admin Meta Box */
     @media (max-width: 782px) {
@@ -979,6 +1003,14 @@ function property_plugin_format_price($price) {
 }
 
 /**
+ * Return the contact email, falling back to the WordPress admin email.
+ */
+function property_plugin_get_contact_email() {
+    $email = get_option('property_plugin_contact_email', '');
+    return is_email($email) ? $email : get_option('admin_email');
+}
+
+/**
  * Register REST API routes
  */
 function property_plugin_register_routes() {
@@ -1447,7 +1479,7 @@ function property_plugin_enqueue_assets() {
                         'enableCompare' => get_option('property_plugin_enable_compare', '1'),
                         'enableLeadForm' => get_option('property_plugin_enable_lead_form', '1'),
                         'leadFormTitle' => get_option('property_plugin_lead_form_title', 'Interested in this property?'),
-                        'contactEmail' => get_option('property_plugin_contact_email', ''),
+                        'contactEmail' => property_plugin_get_contact_email(),
                         'contactPhone' => get_option('property_plugin_contact_phone', ''),
                         'customCSS' => get_option('property_plugin_custom_css', ''),
                         'googleAnalytics' => get_option('property_plugin_google_analytics', ''),
@@ -1494,6 +1526,10 @@ function property_plugin_enqueue_assets() {
                         'contactFormSubtitle' => get_option('property_plugin_contact_form_subtitle', 'Schedule a tour or request more information about this property.'),
                         'featuredLabel' => get_option('property_plugin_featured_label', 'FEATURED PROPERTY'),
                         'scheduleTourUrl' => get_option('property_plugin_schedule_tour_url', ''),
+                        'socialFacebook' => get_option('property_plugin_social_facebook', ''),
+                        'socialTwitter' => get_option('property_plugin_social_twitter', ''),
+                        'socialLinkedin' => get_option('property_plugin_social_linkedin', ''),
+                        'socialInstagram' => get_option('property_plugin_social_instagram', ''),
                                 'currentUserId' => get_current_user_id(),
                     )
                 ));
@@ -1528,82 +1564,17 @@ function property_plugin_enqueue_assets() {
 }
 
 /**
- * Create a demo property on first activation so users see how the plugin looks
+ * Import demo/sample properties from the bundled JSON data.
  */
 function property_plugin_create_demo_property() {
-    // Only run once — skip if demo already created
     if (get_option('property_plugin_demo_created')) {
         return;
     }
 
-    // Insert the property post
-    $post_id = wp_insert_post(array(
-        'post_type'    => 'property',
-        'post_title'   => 'Modern Luxury Villa — Beverly Hills',
-        'post_content' => "This stunning modern villa offers the perfect blend of luxury, comfort, and contemporary design. Located in one of the most prestigious neighborhoods in Beverly Hills, this property features high-end finishes, spacious living areas, and breathtaking panoramic views.\n\nThe open-concept kitchen boasts premium stainless-steel appliances, a large island, and custom cabinetry. The master suite includes a walk-in closet, spa-like bathroom, and a private balcony overlooking the garden and pool.\n\nAdditional highlights include smart home automation, a home theatre, landscaped gardens, a swimming pool, and a 2-car garage.",
-        'post_excerpt' => 'A stunning modern villa in Beverly Hills with pool, smart home features, and panoramic views.',
-        'post_status'  => 'publish',
-    ), true);
+    property_plugin_install_default_data();
 
-    if (is_wp_error($post_id)) {
-        error_log('[Property Plugin Demo] Failed to create demo property: ' . $post_id->get_error_message());
-        return;
-    }
-
-    // --- Taxonomy terms ---
-    wp_set_object_terms($post_id, array('Villa'),      'property-type');
-    wp_set_object_terms($post_id, array('Beverly Hills'), 'property-location');
-    wp_set_object_terms($post_id, array('4'),           'bedrooms');
-    wp_set_object_terms($post_id, array('3'),           'bathrooms');
-    wp_set_object_terms($post_id, array('2'),           'property-floor');
-
-    // --- Meta fields ---
-    update_post_meta($post_id, '_property_price',    '850000');
-    update_post_meta($post_id, '_property_area',     '2500');
-    update_post_meta($post_id, '_property_address',  '1234 Sunset Boulevard, Beverly Hills, CA');
-    update_post_meta($post_id, '_property_city',     'Beverly Hills');
-    update_post_meta($post_id, '_property_state',    'California');
-    update_post_meta($post_id, '_property_zipcode',  '90210');
-    update_post_meta($post_id, '_property_country',  'United States');
-    update_post_meta($post_id, '_property_status',   'for-sale');
-    update_post_meta($post_id, '_property_garage',   '2');
-
-    // --- Featured image (sideload from Unsplash) ---
-    $image_url = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80';
-
-    // WordPress media functions may not be loaded during activation
-    require_once ABSPATH . 'wp-admin/includes/media.php';
-    require_once ABSPATH . 'wp-admin/includes/file.php';
-    require_once ABSPATH . 'wp-admin/includes/image.php';
-
-    $attachment_id = media_sideload_image($image_url, $post_id, 'Modern Luxury Villa — Beverly Hills', 'id');
-
-    if (!is_wp_error($attachment_id)) {
-        set_post_thumbnail($post_id, $attachment_id);
-
-        // Build gallery: 3 extra images
-        $gallery_urls = array(
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80',
-            'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80',
-            'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1200&q=80',
-        );
-        $gallery_ids = array();
-        foreach ($gallery_urls as $url) {
-            $att_id = media_sideload_image($url, $post_id, 'Gallery image', 'id');
-            if (!is_wp_error($att_id)) {
-                $gallery_ids[] = $att_id;
-            }
-        }
-        if (!empty($gallery_ids)) {
-            update_post_meta($post_id, '_property_gallery', implode(',', $gallery_ids));
-        }
-    } else {
-        error_log('[Property Plugin Demo] Image sideload failed: ' . $attachment_id->get_error_message());
-    }
-
-    // Mark demo as created so it never runs again
-    update_option('property_plugin_demo_created', $post_id);
-    error_log('[Property Plugin Demo] Demo property created — Post ID: ' . $post_id);
+    update_option('property_plugin_demo_created', 'sample-data-json');
+    error_log('[Property Plugin Demo] Demo sample data imported from default-properties.json');
 }
 
 
@@ -1731,6 +1702,7 @@ function property_plugin_install_default_data($force = false) {
             if (isset($agent['phone'])) update_post_meta($post_id, '_property_agent_phone', sanitize_text_field($agent['phone']));
             if (isset($agent['email'])) update_post_meta($post_id, '_property_agent_email', sanitize_email($agent['email']));
             if (!empty($agent['photo'])) {
+                update_post_meta($post_id, '_property_agent_photo', esc_url_raw($agent['photo']));
                 $aatt = media_sideload_image($agent['photo'], $post_id, sanitize_text_field($agent['name'] ?? 'agent'), 'id');
                 if (!is_wp_error($aatt)) {
                     update_post_meta($post_id, '_property_agent_photo', wp_get_attachment_image_url($aatt, 'thumbnail'));
@@ -1831,17 +1803,113 @@ function property_plugin_install_default_data($force = false) {
                 'contactFormSubtitle' => 'property_plugin_contact_form_subtitle',
                 'featuredLabel' => 'property_plugin_featured_label',
                 'scheduleTourUrl' => 'property_plugin_schedule_tour_url',
+                'socialFacebook' => 'property_plugin_social_facebook',
+                'socialTwitter' => 'property_plugin_social_twitter',
+                'socialLinkedin' => 'property_plugin_social_linkedin',
+                'socialInstagram' => 'property_plugin_social_instagram',
             );
 
             foreach ($simple_keys as $src => $opt_name) {
-                if (isset($sdata[$src])) update_option($opt_name, $sdata[$src]);
+                if (isset($sdata[$src])) {
+                    $value = $sdata[$src];
+                    if ($src === 'contactEmail' && !is_email($value)) {
+                        $value = get_option('admin_email');
+                    }
+                    update_option($opt_name, $value);
+                }
             }
         }
     }
 
+    property_plugin_install_default_leads();
+
     // Mark installed
     update_option('property_plugin_default_data_installed', 1);
     error_log('[Property Plugin] Default data import complete');
+}
+
+/**
+ * Seed demo leads for the default property data.
+ */
+function property_plugin_install_default_leads() {
+    global $wpdb;
+
+    property_plugin_create_leads_table();
+
+    $table_name = $wpdb->prefix . 'property_leads';
+    $sample_leads = array(
+        array(
+            'property_title' => 'Modern Luxury Villa — Beverly Hills',
+            'name' => 'Aarav Mehta',
+            'email' => 'aarav.mehta@example.com',
+            'phone' => '+1 (310) 555-1001',
+            'message' => 'Please share the latest availability and a weekend viewing slot.',
+            'created_at' => current_time('mysql'),
+        ),
+        array(
+            'property_title' => 'Cozy Downtown Apartment — New York',
+            'name' => 'Maya Kapoor',
+            'email' => 'maya.kapoor@example.com',
+            'phone' => '+1 (212) 555-1002',
+            'message' => 'I am interested in this apartment and would like details about monthly fees.',
+            'created_at' => current_time('mysql'),
+        ),
+        array(
+            'property_title' => 'Beachfront Bungalow — Malibu',
+            'name' => 'Daniel Brooks',
+            'email' => 'daniel.brooks@example.com',
+            'phone' => '+1 (424) 555-1003',
+            'message' => 'Can you confirm beach access rules and rental potential for this property?',
+            'created_at' => current_time('mysql'),
+        ),
+        array(
+            'property_title' => 'Spacious Family Home — Austin, Texas',
+            'name' => 'Priya Nair',
+            'email' => 'priya.nair@example.com',
+            'phone' => '+1 (512) 555-1004',
+            'message' => 'We are relocating to Austin and want to schedule a family tour next week.',
+            'created_at' => current_time('mysql'),
+        ),
+        array(
+            'property_title' => 'Luxury Penthouse — Miami Beach',
+            'name' => 'Ethan Williams',
+            'email' => 'ethan.williams@example.com',
+            'phone' => '+1 (305) 555-1005',
+            'message' => 'Please send the full brochure, HOA details, and private showing options.',
+            'created_at' => current_time('mysql'),
+        ),
+    );
+
+    foreach ($sample_leads as $lead) {
+        $property = get_page_by_title($lead['property_title'], OBJECT, 'property');
+        $property_id = $property ? intval($property->ID) : 0;
+
+        $exists = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT id FROM $table_name WHERE email = %s AND property_title = %s LIMIT 1",
+                $lead['email'],
+                $lead['property_title']
+            )
+        );
+
+        if ($exists) {
+            continue;
+        }
+
+        $wpdb->insert(
+            $table_name,
+            array(
+                'property_id' => $property_id,
+                'property_title' => $lead['property_title'],
+                'name' => $lead['name'],
+                'email' => $lead['email'],
+                'phone' => $lead['phone'],
+                'message' => $lead['message'],
+                'created_at' => $lead['created_at'],
+            ),
+            array('%d', '%s', '%s', '%s', '%s', '%s', '%s')
+        );
+    }
 }
 
 // Hook import on admin_init to ensure default data is installed (duplicate check is safe)
@@ -2083,7 +2151,7 @@ function property_plugin_submit_lead($request) {
     error_log('[Property Plugin Lead] SUCCESS: Lead #' . $lead_id . ' saved for ' . $email);
 
     // --- Send notification email with professional HTML template ---
-    $to = get_option('property_plugin_contact_email', get_option('admin_email'));
+    $to = property_plugin_get_contact_email();
     $site_name = get_bloginfo('name');
     $site_url = get_bloginfo('url');
     $current_time = current_time('mysql');

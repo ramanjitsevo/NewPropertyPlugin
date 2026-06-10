@@ -22,7 +22,7 @@
   "enableCompare": "1",
   "enableLeadForm": "1",
   "leadFormTitle": "Interested in this property?",
-  "contactEmail": "info@propertysite.example",
+  "contactEmail": "",
   "contactPhone": "+1 (555) 987-6543",
   "customCSS": "",
   "googleAnalytics": "",
@@ -43,5 +43,9 @@
   "contactFormHeading": "Get More Details",
   "contactFormSubtitle": "Schedule a tour or request more information about this property.",
   "featuredLabel": "FEATURED PROPERTY",
-  "scheduleTourUrl": ""
+  "scheduleTourUrl": "",
+  "socialFacebook": "https://facebook.com/propertyplugin",
+  "socialTwitter": "https://twitter.com/propertyplugin",
+  "socialLinkedin": "https://linkedin.com/company/propertyplugin",
+  "socialInstagram": "https://instagram.com/propertyplugin"
 }
